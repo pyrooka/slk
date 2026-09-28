@@ -125,10 +125,11 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 	add("Time zone", m.profile.TimeZone)
 	add("Email", m.profile.Email)
 	add("Phone", m.profile.Phone)
-	add("User ID", m.userID)
 	for _, f := range m.profile.Fields {
 		add(f.Label, f.Value)
 	}
+	rows = append(rows, "")
+	add("User ID", m.userID)
 	add("Handle", m.profile.Handle)
 	return rows
 }
@@ -213,7 +214,12 @@ func (m *userInfoModal) renderBox(termWidth, termHeight int) string {
 	for _, row := range rows[start : start+visible] {
 		lines = append(lines, bodyStyle.Render(pad(profileLine(row, innerWidth))))
 	}
-	lines = append(lines, lipgloss.NewStyle().Background(bg).Foreground(styles.TextMuted).Render(pad(profileLine("j/k scroll · Esc close", innerWidth))))
+	footer := "j/k scroll · Esc close"
+	if visible < len(rows) {
+		position := min(start+1, len(rows))
+		footer = "j/k scroll · " + strconv.Itoa(position) + "/" + strconv.Itoa(len(rows)) + " · Esc close"
+	}
+	lines = append(lines, lipgloss.NewStyle().Background(bg).Foreground(styles.TextMuted).Render(pad(profileLine(footer, innerWidth))))
 	content := messages.ReapplyBgAfterResets(strings.Join(lines, "\n"), messages.BgANSI()+messages.FgANSI())
 	return lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).BorderForeground(styles.Primary).BorderBackground(bg).

@@ -66,6 +66,17 @@ func TestUserInfoOpenAndLoad(t *testing.T) {
 	if rows[len(rows)-1] != userInfoFieldRows("Handle", "avery", 60)[0] {
 		t.Fatalf("handle is not the last profile attribute: %q", rows)
 	}
+	userIDRow := userInfoFieldRows("User ID", "U1", 60)[0]
+	userIDIndex := -1
+	for i, row := range rows {
+		if row == userIDRow {
+			userIDIndex = i
+			break
+		}
+	}
+	if userIDIndex < 1 || rows[userIDIndex-1] != "" {
+		t.Fatalf("expected a blank row before User ID: %q", rows)
+	}
 	if !strings.Contains(strings.Join(rows, "\n"), userInfoFieldRows("Presence", "Active", 60)[0]) {
 		t.Fatal("presence does not use attribute formatting")
 	}
@@ -227,6 +238,17 @@ func TestConversationDescriptionRemainsAvailableWhenScrolled(t *testing.T) {
 	}
 	if !strings.Contains(strings.Join(rows, "\n"), "description end marker") {
 		t.Fatal("description was truncated from popup rows")
+	}
+	footer := ansi.Strip(a.userInfo.renderBox(100, 12))
+	firstPosition := "j/k scroll · 1/" + strconv.Itoa(len(rows)) + " · Esc close"
+	if !strings.Contains(footer, firstPosition) {
+		t.Fatalf("footer missing initial position %q: %s", firstPosition, footer)
+	}
+	a.userInfo.Scroll(3, 100)
+	footer = ansi.Strip(a.userInfo.renderBox(100, 12))
+	nextPosition := "j/k scroll · 4/" + strconv.Itoa(len(rows)) + " · Esc close"
+	if !strings.Contains(footer, nextPosition) {
+		t.Fatalf("footer missing updated position %q: %s", nextPosition, footer)
 	}
 	a.userInfo.Scroll(1000, 100)
 	if !strings.Contains(ansi.Strip(a.userInfo.renderBox(100, 12)), "description end marker") {
