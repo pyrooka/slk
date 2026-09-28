@@ -62,8 +62,15 @@ func TestUserInfoOpenAndLoad(t *testing.T) {
 	if !strings.Contains(strings.Join(a.userInfo.rows(60), "\n"), userInfoFieldRows("Name", "Avery Chen", 60)[0]) {
 		t.Fatal("profile name does not use attribute formatting")
 	}
+	rows := a.userInfo.rows(60)
+	if rows[len(rows)-1] != userInfoFieldRows("Handle", "avery", 60)[0] {
+		t.Fatalf("handle is not the last profile attribute: %q", rows)
+	}
+	if !strings.Contains(strings.Join(rows, "\n"), userInfoFieldRows("Presence", "Active", 60)[0]) {
+		t.Fatal("presence does not use attribute formatting")
+	}
 	plain := ansi.Strip(a.userInfo.ViewOverlay(a.width, a.height, strings.Repeat(" ", a.width)))
-	for _, part := range []string{"Avery Chen", "@avery", "Engineer", "avery@example.com"} {
+	for _, part := range []string{"Avery Chen", "Presence", "Active", "Handle", "avery", "Engineer", "avery@example.com"} {
 		if !strings.Contains(plain, part) {
 			t.Errorf("popup missing %q: %q", part, plain)
 		}

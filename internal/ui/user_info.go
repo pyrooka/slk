@@ -110,22 +110,14 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 		name = m.name
 	}
 	rows := userInfoFieldRows("Name", name, innerWidth)
-	line := ""
-	if m.profile.Handle != "" {
-		line = "@" + m.profile.Handle
-	}
-	if m.presence != "" {
-		if line != "" {
-			line += " · "
-		}
-		line += strings.ToUpper(m.presence[:1]) + m.presence[1:]
-	}
-	if line != "" {
-		rows = append(rows, wrappedProfileLines(line, innerWidth)...)
-	}
 	add := func(label, value string) {
 		rows = append(rows, userInfoFieldRows(label, value, innerWidth)...)
 	}
+	presence := ""
+	if m.presence != "" {
+		presence = strings.ToUpper(m.presence[:1]) + m.presence[1:]
+	}
+	add("Presence", presence)
 	add("Real name", m.profile.RealName)
 	add("Title", m.profile.Title)
 	add("Pronouns", m.profile.Pronouns)
@@ -137,6 +129,7 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 	for _, f := range m.profile.Fields {
 		add(f.Label, f.Value)
 	}
+	add("Handle", m.profile.Handle)
 	return rows
 }
 
