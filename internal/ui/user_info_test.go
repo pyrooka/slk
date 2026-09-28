@@ -240,19 +240,100 @@ func TestConversationDescriptionRemainsAvailableWhenScrolled(t *testing.T) {
 		t.Fatal("description was truncated from popup rows")
 	}
 	footer := ansi.Strip(a.userInfo.renderBox(100, 12))
-	firstPosition := "j/k scroll · 1/" + strconv.Itoa(len(rows)) + " · Esc close"
+	renderedRows := a.userInfo.contentRows(a.userInfo.rowWidth(100))
+	firstPosition := "j/k move · y copy · 1/" + strconv.Itoa(len(renderedRows)) + " · Esc close"
 	if !strings.Contains(footer, firstPosition) {
 		t.Fatalf("footer missing initial position %q: %s", firstPosition, footer)
 	}
-	a.userInfo.Scroll(3, 100)
+	a.userInfo.MoveSelection(3, 100, 12)
 	footer = ansi.Strip(a.userInfo.renderBox(100, 12))
-	nextPosition := "j/k scroll · 4/" + strconv.Itoa(len(rows)) + " · Esc close"
+	renderedRows = a.userInfo.contentRows(a.userInfo.rowWidth(100))
+	nextPosition := "j/k move · y copy · 4/" + strconv.Itoa(len(renderedRows)) + " · Esc close"
 	if !strings.Contains(footer, nextPosition) {
 		t.Fatalf("footer missing updated position %q: %s", nextPosition, footer)
 	}
-	a.userInfo.Scroll(1000, 100)
+	a.userInfo.MoveSelection(1000, 100, 12)
 	if !strings.Contains(ansi.Strip(a.userInfo.renderBox(100, 12)), "description end marker") {
 		t.Fatal("scrolling could not reveal the full description")
+	}
+}
+
+func TestUserInfoClickAndYCopyFullWrappedValue(t *testing.T) {
+	a := userInfoTestApp(t)
+	email := "first line\n" + strings.Repeat("email detail ", 12) + "END"
+	a.SetUserProfileFetcher(func(_, _ string) (core.UserProfile, error) {
+		return core.UserProfile{DisplayName: "Avery Chen", Email: email}, nil
+	})
+	_, fetch := a.Update(keyPress('I'))
+	a.Update(fetch())
+
+	var copied string
+	a.SetClipboardWriter(func(value string) tea.Cmd {
+		copied = value
+		return nil
+	})
+	lines := a.userInfo.contentRows(a.userInfo.rowWidth(a.width))
+	continuation, matches := -1, 0
+	for i, line := range lines {
+		if line.selectable && line.value == email {
+			matches++
+			if matches == 2 {
+				continuation = i
+			}
+		}
+	}
+	if continuation < 0 {
+		t.Fatalf("email did not wrap into selectable lines: %+v", lines)
+	}
+	boxW, boxH := a.userInfo.BoxSize(a.width, a.height)
+	localY := userInfoListTopOffset + continuation
+	a.Update(tea.MouseClickMsg{
+		X:      (a.width-boxW)/2 + 1,
+		Y:      (a.height-boxH)/2 + localY,
+		Button: tea.MouseLeft,
+	})
+	if got, ok := a.userInfo.SelectedValue(a.width); !ok || got != email {
+		t.Fatalf("selected value = %q, ok=%v, want entire email", got, ok)
+	}
+	if copied != "" {
+		t.Fatal("click copied the field instead of only selecting it")
+	}
+	if !strings.Contains(ansi.Strip(a.userInfo.renderBox(a.width, a.height)), "▌") {
+		t.Fatal("selected row has no keybinding-style indicator")
+	}
+	_, copyCmd := a.Update(keyPress('y'))
+	if copied != email {
+		t.Fatalf("copied %q, want %q", copied, email)
+	}
+	msg, ok := drainForCopiedMsg(copyCmd())
+	if !ok || msg.N != len([]rune(email)) {
+		t.Fatalf("copy toast = %+v, ok=%v", msg, ok)
+	}
+}
+
+func TestGroupMembersValueIsSelectableAndCopiedAsOneField(t *testing.T) {
+	a := userInfoTestApp(t)
+	a.sidebar.SelectByID("G1")
+	a.SetConversationInfoFetcher(func(_, _, _ string) (core.ConversationInfo, error) {
+		return core.ConversationInfo{Members: []core.ConversationMember{{Name: "Alice"}, {Name: "Bob"}}, MemberCount: 2, HasMemberCount: true}, nil
+	})
+	_, fetch := a.Update(keyPress('I'))
+	a.Update(fetch())
+	if cmd := dispatchModeKey(a, keyPress('j')); cmd != nil {
+		t.Fatalf("selection returned command %T", cmd)
+	}
+	want := "2 · Alice, Bob"
+	if got, ok := a.userInfo.SelectedValue(a.width); !ok || got != want {
+		t.Fatalf("selected group value = %q, ok=%v, want %q", got, ok, want)
+	}
+	var copied string
+	a.SetClipboardWriter(func(value string) tea.Cmd { copied = value; return nil })
+	_, copyCmd := a.Update(keyPress('y'))
+	if copied != want {
+		t.Fatalf("copied %q, want %q", copied, want)
+	}
+	if msg, ok := drainForCopiedMsg(copyCmd()); !ok || msg.N != len([]rune(want)) {
+		t.Fatalf("copy toast = %+v, ok=%v", msg, ok)
 	}
 }
 
@@ -422,6 +503,7 @@ func TestUserInfoRenderBoundedAndScrollable(t *testing.T) {
 		a.userInfo.profile.Fields = append(a.userInfo.profile.Fields, core.ProfileField{Label: "Field", Value: "Value"})
 	}
 	w, h := 24, 12
+	a.width, a.height = w, h
 	box := a.userInfo.renderBox(w, h)
 	if lipgloss.Width(box) > w || len(strings.Split(box, "\n")) > h {
 		t.Fatalf("box exceeds %dx%d: %dx%d\n%s", w, h, lipgloss.Width(box), len(strings.Split(box, "\n")), box)

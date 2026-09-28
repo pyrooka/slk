@@ -23,5 +23,6 @@ var reduceUserInfo reducerFunc = func(a *App, msg tea.Msg) (tea.Cmd, bool) {
 	}
 	a.userInfo.loading = false
 	a.userInfo.offset = 0
+	a.userInfo.ClampSelection(a.width, a.height)
 	return nil, true
 }

@@ -26,8 +26,16 @@ type userInfoModal struct {
 	info                                            core.ConversationInfo
 	loading                                         bool
 	err                                             error
-	offset                                          int
+	offset, selected                                int
 }
+
+type userInfoLine struct {
+	text       string
+	value      string
+	selectable bool
+}
+
+const userInfoListTopOffset = 3
 
 func (m *userInfoModal) Open(teamID, userID, name, presence string, status peerstatus.Status) {
 	m.requestID++
@@ -48,29 +56,37 @@ func (m *userInfoModal) Close() {
 
 func (m *userInfoModal) IsVisible() bool { return m.userID != "" || m.channelID != "" }
 
-func (m *userInfoModal) Scroll(delta, termWidth int) {
-	innerWidth := max(1, min(80, termWidth-2)-4)
-	m.offset = max(0, min(m.offset+delta, len(m.rows(innerWidth))-1))
-}
+func (m *userInfoModal) contentRows(width int) []userInfoLine {
+	var rows []userInfoLine
+	add := func(label, value string) {
+		value = cleanProfileText(value)
+		for _, text := range userInfoFieldRows(label, value, width) {
+			rows = append(rows, userInfoLine{text: text, value: value, selectable: true})
+		}
+	}
+	addText := func(text string) {
+		for _, line := range wrappedProfileLines(text, width) {
+			rows = append(rows, userInfoLine{text: line})
+		}
+	}
 
-func (m *userInfoModal) rows(innerWidth int) []string {
 	if m.loading || m.err != nil {
-		rows := userInfoFieldRows("Name", m.name, innerWidth)
+		add("Name", m.name)
 		if m.loading {
 			label := "Loading profile…"
 			if m.kind != "user" {
 				label = "Loading conversation info…"
 			}
-			return append(rows, label)
+			addText(label)
+		} else if m.kind == "user" {
+			addText("Profile unavailable")
+		} else {
+			addText("Conversation info unavailable: " + m.err.Error())
 		}
-		if m.kind == "user" {
-			return append(rows, "Profile unavailable")
-		}
-		return append(rows, wrappedProfileLines("Conversation info unavailable: "+m.err.Error(), innerWidth)...)
+		return rows
 	}
+
 	if m.kind != "user" {
-		rows := []string{}
-		add := func(label, value string) { rows = append(rows, userInfoFieldRows(label, value, innerWidth)...) }
 		add("Name", m.name)
 		if m.kind == "group_dm" {
 			names := make([]string, 0, len(m.info.Members))
@@ -105,14 +121,12 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 		}
 		return rows
 	}
+
 	name := m.profile.DisplayName
 	if name == "" {
 		name = m.name
 	}
-	rows := userInfoFieldRows("Name", name, innerWidth)
-	add := func(label, value string) {
-		rows = append(rows, userInfoFieldRows(label, value, innerWidth)...)
-	}
+	add("Name", name)
 	presence := ""
 	if m.presence != "" {
 		presence = strings.ToUpper(m.presence[:1]) + m.presence[1:]
@@ -128,10 +142,110 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 	for _, f := range m.profile.Fields {
 		add(f.Label, f.Value)
 	}
-	rows = append(rows, "")
+	rows = append(rows, userInfoLine{})
 	add("User ID", m.userID)
 	add("Handle", m.profile.Handle)
 	return rows
+}
+
+func (m *userInfoModal) rows(width int) []string {
+	lines := m.contentRows(width)
+	rows := make([]string, len(lines))
+	for i, line := range lines {
+		rows[i] = line.text
+	}
+	return rows
+}
+
+func (m *userInfoModal) rowWidth(termWidth int) int {
+	return max(1, min(80, termWidth-2)-5)
+}
+
+func (m *userInfoModal) SelectedValue(termWidth int) (string, bool) {
+	rows := m.contentRows(m.rowWidth(termWidth))
+	if m.selected < 0 || m.selected >= len(rows) || !rows[m.selected].selectable {
+		return "", false
+	}
+	return rows[m.selected].value, true
+}
+
+func (m *userInfoModal) MoveSelection(delta, termWidth, termHeight int) {
+	if delta == 0 {
+		return
+	}
+	rows := m.contentRows(m.rowWidth(termWidth))
+	direction := 1
+	steps := delta
+	if delta < 0 {
+		direction = -1
+		steps = -delta
+	}
+	index := m.selected
+	for step := 0; step < steps; step++ {
+		for {
+			index += direction
+			if index < 0 || index >= len(rows) {
+				return
+			}
+			if rows[index].selectable {
+				m.selected = index
+				m.keepSelectedVisible(rows, termHeight)
+				break
+			}
+		}
+	}
+}
+
+func (m *userInfoModal) ClickRow(termWidth, termHeight, localY int) bool {
+	row := localY - userInfoListTopOffset
+	rows := m.contentRows(m.rowWidth(termWidth))
+	visible := min(len(rows), max(0, termHeight-5))
+	start := min(m.offset, max(0, len(rows)-visible))
+	index := start + row
+	if row < 0 || row >= visible || index >= len(rows) || !rows[index].selectable {
+		return false
+	}
+	m.selected = index
+	m.keepSelectedVisible(rows, termHeight)
+	return true
+}
+
+func (m *userInfoModal) ClampSelection(termWidth, termHeight int) {
+	rows := m.contentRows(m.rowWidth(termWidth))
+	if m.selected >= 0 && m.selected < len(rows) && rows[m.selected].selectable {
+		m.keepSelectedVisible(rows, termHeight)
+		return
+	}
+	for i := max(0, m.selected); i < len(rows); i++ {
+		if rows[i].selectable {
+			m.selected = i
+			m.keepSelectedVisible(rows, termHeight)
+			return
+		}
+	}
+	for i := min(m.selected, len(rows)-1); i >= 0; i-- {
+		if rows[i].selectable {
+			m.selected = i
+			m.keepSelectedVisible(rows, termHeight)
+			return
+		}
+	}
+	m.selected = -1
+	m.offset = 0
+}
+
+func (m *userInfoModal) keepSelectedVisible(rows []userInfoLine, termHeight int) {
+	visible := min(len(rows), max(0, termHeight-5))
+	if visible == 0 {
+		return
+	}
+	maxOffset := max(0, len(rows)-visible)
+	if m.selected < m.offset {
+		m.offset = m.selected
+	} else if m.selected >= m.offset+visible {
+		m.offset = m.selected - visible + 1
+	}
+	m.offset = max(0, min(m.offset, maxOffset))
 }
 
 // cleanProfileText keeps Slack-provided values from injecting terminal controls.
@@ -193,9 +307,10 @@ func (m *userInfoModal) renderBox(termWidth, termHeight int) string {
 		return ""
 	}
 	boxWidth := min(80, termWidth-2)
-	innerWidth := boxWidth - 4 // border and one column of padding on either side
-	rows := m.rows(innerWidth)
-	visible := min(len(rows), termHeight-5) // title, spacer, footer, and borders
+	innerWidth := boxWidth - 4       // border and one column of padding on either side
+	rowWidth := max(1, innerWidth-1) // reserve a column for the selection indicator
+	rows := m.contentRows(rowWidth)
+	visible := min(len(rows), max(0, termHeight-5)) // title, spacer, footer, and borders
 	start := min(m.offset, max(0, len(rows)-visible))
 	pad := func(line string) string {
 		return line + strings.Repeat(" ", max(0, innerWidth-lipgloss.Width(line)))
@@ -210,14 +325,36 @@ func (m *userInfoModal) renderBox(termWidth, termHeight int) string {
 	}
 	lines = append(lines, lipgloss.NewStyle().Background(bg).Foreground(styles.Primary).Bold(true).Render(pad(profileLine(title, innerWidth))))
 	bodyStyle := lipgloss.NewStyle().Background(bg).Foreground(styles.TextPrimary)
+	selectedStyle := lipgloss.NewStyle().Background(bg).Foreground(styles.Primary).Bold(true)
+	indicatorStyle := lipgloss.NewStyle().Background(bg).Foreground(styles.Accent).Bold(true)
 	lines = append(lines, bodyStyle.Render(pad("")))
-	for _, row := range rows[start : start+visible] {
-		lines = append(lines, bodyStyle.Render(pad(profileLine(row, innerWidth))))
+	for i, row := range rows[start : start+visible] {
+		indicator := bodyStyle.Render(" ")
+		rowStyle := bodyStyle
+		if row.selectable && start+i == m.selected {
+			indicator = indicatorStyle.Render("▌")
+			rowStyle = selectedStyle
+		}
+		text := profileLine(row.text, rowWidth)
+		text += strings.Repeat(" ", max(0, rowWidth-lipgloss.Width(text)))
+		lines = append(lines, indicator+rowStyle.Render(text))
 	}
-	footer := "j/k scroll · Esc close"
+	footer := "j/k move · y copy · Esc close"
+	position, totalSelectable := 0, 0
+	for i, row := range rows {
+		if row.selectable {
+			totalSelectable++
+			if i <= m.selected {
+				position++
+			}
+		}
+	}
 	if visible < len(rows) {
-		position := min(start+1, len(rows))
-		footer = "j/k scroll · " + strconv.Itoa(position) + "/" + strconv.Itoa(len(rows)) + " · Esc close"
+		positionText := strconv.Itoa(position) + "/" + strconv.Itoa(totalSelectable)
+		footer = "j/k move · y copy · " + positionText + " · Esc close"
+		if lipgloss.Width(footer) > innerWidth {
+			footer = "j/k · y copy · " + positionText + " · Esc"
+		}
 	}
 	lines = append(lines, lipgloss.NewStyle().Background(bg).Foreground(styles.TextMuted).Render(pad(profileLine(footer, innerWidth))))
 	content := messages.ReapplyBgAfterResets(strings.Join(lines, "\n"), messages.BgANSI()+messages.FgANSI())
