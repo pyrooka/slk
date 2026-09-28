@@ -729,6 +729,7 @@ func run() error {
 			return railUnreadWorkspaces(unread, railTeamIDs, router.ByID, railThreadsUnread(db))
 		}
 		app.SetUnreadService(core.NewUnreadService(channelReadStates, unreadWorkspaces))
+		app.SetUserProfileFetcher(userProfileFetcher(router))
 
 		app.SetChannelService(core.NewChannelService(core.ChannelServiceFuncs{
 			RecordVisit: func(channelID ids.ChannelID) {

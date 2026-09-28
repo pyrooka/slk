@@ -205,7 +205,8 @@ type App struct {
 	// delete / mark-unread / permalink). See internal/ui/services.go.
 	// Defaulted to a no-op adapter in NewApp so call sites can dispatch
 	// without nil-checks.
-	messageSvc core.MessageService
+	messageSvc         core.MessageService
+	userProfileFetcher core.UserProfileFetchFunc
 
 	// files uploads and downloads attachments. Nil until wired; both
 	// paths toast when it is unset.
@@ -416,6 +417,7 @@ type App struct {
 	reactionPicker *reactionpicker.Model
 	reactionsView  *reactionsview.Model
 	confirmPrompt  *confirmprompt.Model
+	userInfo       userInfoModal
 	// reactions is the App's ReactionService collaborator (add/remove
 	// reactions on Slack + load/record frecent emoji history). See
 	// internal/ui/services.go. Defaulted to a no-op adapter in NewApp
@@ -953,6 +955,7 @@ func (a *App) update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		reduceSearch,
 		reduceWorkspace,
 		reduceNewMessagePicker,
+		reduceUserInfo,
 		reduceIO,
 		reduceMouse,
 	); handled {
@@ -2067,6 +2070,9 @@ func (a *App) SetMode(mode Mode) {
 		a.cmdline = ""
 		a.statusbar.SetCommandLine("")
 	}
+	if a.mode == ModeUserInfo && mode != ModeUserInfo {
+		a.userInfo.Close()
+	}
 	a.mode = mode
 	a.statusbar.SetMode(mode)
 }
@@ -2541,6 +2547,11 @@ func (a *App) SetChannelService(s core.ChannelService) {
 		s = noopChannelService
 	}
 	a.channels = s
+}
+
+// SetUserProfileFetcher wires the on-demand users.info lookup.
+func (a *App) SetUserProfileFetcher(fetch core.UserProfileFetchFunc) {
+	a.userProfileFetcher = fetch
 }
 
 // SetSearchService injects the search backend (wired by cmd/slk).

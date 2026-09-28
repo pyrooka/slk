@@ -9,19 +9,19 @@ import (
 // TestEveryModeHasAHandler pins the registration invariant.
 // dispatchModeKey falls back to handleNormalMode for unregistered modes
 // (mode_handlers.go:96); that fallback should be unreachable because all
-// 16 modes are registered, and a mode that reached it would silently
+// 17 modes are registered, and a mode that reached it would silently
 // serve normal-mode behaviour to a modal.
 //
 // What this test detects:
 //
 //   - a modeHandlers entry deleted — len(modeHandlers) drops below
 //     len(all), and the loop names the orphaned mode;
-//   - a 17th Mode added AND registered — len(modeHandlers) exceeds
+//   - an 18th Mode added AND registered — len(modeHandlers) exceeds
 //     len(all), forcing the pinned list below to be updated;
-//   - a 17th Mode added, NOT registered, but given a String() arm — the
+//   - an 18th Mode added, NOT registered, but given a String() arm — the
 //     Mode(len(all)) probe below stops answering "UNKNOWN".
 //
-// What it cannot detect: a 17th Mode with neither a handler nor a
+// What it cannot detect: an 18th Mode with neither a handler nor a
 // String() arm. `all` is a hand-maintained literal, and Mode is a bare
 // int iota with no count sentinel (mode.go:4-23), so nothing available
 // to test code ties the list to the constant block. Closing that
@@ -35,7 +35,7 @@ func TestEveryModeHasAHandler(t *testing.T) {
 		ModeChannelFinder, ModeReactionPicker, ModeWorkspaceFinder,
 		ModeThemeSwitcher, ModePresenceMenu, ModePresenceCustomSnooze,
 		ModeConfirm, ModeHelp, ModeNewMessage, ModeReactionsView,
-		ModeLinkPicker, ModeWorkspaceSearch,
+		ModeLinkPicker, ModeWorkspaceSearch, ModeUserInfo,
 	}
 	if len(modeHandlers) != len(all) {
 		t.Errorf("modeHandlers has %d entries, want %d", len(modeHandlers), len(all))
@@ -45,12 +45,12 @@ func TestEveryModeHasAHandler(t *testing.T) {
 			t.Errorf("mode %v (%s) has no handler; keys would fall back to Normal", m, m)
 		}
 	}
-	// A 17th Mode would take the value len(all). Mode.String() answers
+	// An 18th Mode would take the value len(all). Mode.String() answers
 	// "UNKNOWN" only for values outside the constant block
 	// (mode.go:87-88), so anything else here means a Mode exists that
 	// the pinned list does not know about — including the case where it
 	// was added without a handler, which the two checks above cannot
-	// see because both counts stay at 16.
+	// see because both counts stay at 17.
 	if got := Mode(len(all)).String(); got != "UNKNOWN" {
 		t.Errorf("Mode(%d).String() = %q, want UNKNOWN: a Mode exists beyond the pinned list", len(all), got)
 	}

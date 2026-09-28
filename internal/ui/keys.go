@@ -11,6 +11,7 @@ type KeyMap struct {
 	Enter               key.Binding
 	Escape              key.Binding
 	InsertMode          key.Binding
+	UserInfo            key.Binding
 	CommandMode         key.Binding
 	SearchMode          key.Binding
 	SearchNext          key.Binding
@@ -79,6 +80,7 @@ func DefaultKeyMap() KeyMap {
 		Enter:           key.NewBinding(key.WithKeys("enter"), key.WithHelp("enter", "open/confirm")),
 		Escape:          key.NewBinding(key.WithKeys("esc"), key.WithHelp("esc", "back")),
 		InsertMode:      key.NewBinding(key.WithKeys("i"), key.WithHelp("i", "insert mode")),
+		UserInfo:        key.NewBinding(key.WithKeys("I"), key.WithHelp("I", "sidebar user info")),
 		CommandMode:     key.NewBinding(key.WithKeys(":"), key.WithHelp(":", "command mode")),
 		SearchMode:      key.NewBinding(key.WithKeys("/"), key.WithHelp("/", "search")),
 		SearchNext:      key.NewBinding(key.WithKeys("n"), key.WithHelp("n", "next match")),

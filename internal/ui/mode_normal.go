@@ -27,6 +27,7 @@
 package ui
 
 import (
+	"errors"
 	"time"
 
 	"charm.land/bubbles/v2/key"
@@ -68,6 +69,26 @@ func handleNormalMode(a *App, msg tea.KeyMsg) tea.Cmd {
 	}
 
 	switch {
+	case key.Matches(msg, a.keys.UserInfo):
+		if a.focusedPanel != PanelSidebar || !a.sidebarVisible {
+			return nil
+		}
+		item, ok := a.sidebar.SelectedItem()
+		if !ok || (item.Type != "dm" && item.Type != "app") || item.DMUserID == "" {
+			return nil
+		}
+		a.userInfo.Open(a.activeTeamID, item.DMUserID, item.Name, item.Presence, item.Status)
+		a.SetMode(ModeUserInfo)
+		teamID, userID, requestID := a.activeTeamID, item.DMUserID, a.userInfo.requestID
+		fetch := a.userProfileFetcher
+		return func() tea.Msg {
+			if fetch == nil {
+				return UserProfileLoadedMsg{TeamID: teamID, UserID: userID, RequestID: requestID, Err: errors.New("profile service unavailable")}
+			}
+			profile, err := fetch(teamID, userID)
+			return UserProfileLoadedMsg{TeamID: teamID, UserID: userID, RequestID: requestID, Profile: profile, Err: err}
+		}
+
 	case key.Matches(msg, a.keys.InsertMode):
 		a.SetMode(ModeInsert)
 		// In the Threads view there is no main compose box -- the

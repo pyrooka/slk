@@ -9,6 +9,22 @@ import (
 // in a TUI package, which still exposes them under their old names as
 // aliases.
 
+// UserProfile holds the optional details returned for a DM peer on demand.
+// Contact details are not persisted in the local user cache.
+type UserProfile struct {
+	DisplayName string
+	RealName    string
+	Handle      string
+	Pronouns    string
+	Title       string
+	TimeZone    string
+	Email       string
+	Phone       string
+	Fields      []ProfileField
+}
+
+type ProfileField struct{ Label, Value string }
+
 // ForwardResult identifies the message Slack posted in the destination.
 // Text is the source permalink; preview attachments arrive via WebSocket.
 type ForwardResult struct {

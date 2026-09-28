@@ -27,6 +27,15 @@ import (
 	"github.com/gammons/slk/internal/ui/sidebar"
 )
 
+// UserProfileLoadedMsg delivers the on-demand profile of a sidebar DM peer.
+// RequestID prevents a late fetch from overwriting a newer opening.
+type UserProfileLoadedMsg struct {
+	TeamID, UserID string
+	RequestID      uint64
+	Profile        core.UserProfile
+	Err            error
+}
+
 // EmojiImageReadyMsg re-exports emoji.EmojiImageReadyMsg so reducers
 // can refer to it without an extra import. Dispatched when a previously
 // cold-cache emoji finishes fetching and is now warm-renderable across
