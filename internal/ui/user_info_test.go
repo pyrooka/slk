@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
@@ -160,6 +161,51 @@ func TestUserInfoPopupBackgroundCoversBorderTextAndPadding(t *testing.T) {
 				t.Errorf("cell (%d,%d) %q background = %v, want popup background", x, y, cell.Content, cell.Style.Bg)
 			}
 		}
+	}
+}
+
+func TestUserInfoFieldRowsWrapWithAlignedContinuations(t *testing.T) {
+	a := userInfoTestApp(t)
+	_ = dispatchModeKey(a, keyPress('I'))
+	a.userInfo.loading = false
+	a.userInfo.profile = core.UserProfile{
+		DisplayName: "Avery Chen",
+		Title:       "Engineering lead coordinating a very large team across several different offices",
+		Email:       "first line\nsecond line continues with another very long part that must wrap",
+	}
+	a.userInfo.status = peerstatus.Status{Text: "Scheduling another week with the team and the whole organization"}
+	const width = 30
+	rows := a.userInfo.rows(width)
+	for i, row := range rows {
+		if lipgloss.Width(row) > width {
+			t.Errorf("row %d width %d exceeds %d: %q", i, lipgloss.Width(row), width, row)
+		}
+	}
+	assertFieldRows := func(label, value string) {
+		t.Helper()
+		want := userInfoFieldRows(label, value, width)
+		start := -1
+		for i, row := range rows {
+			if len(want) > 0 && row == want[0] {
+				start = i
+				break
+			}
+		}
+		if start < 0 || start+len(want) > len(rows) {
+			t.Fatalf("%s field rows missing from:\n%s", label, strings.Join(rows, "\n"))
+		}
+		for i, line := range want {
+			if rows[start+i] != line {
+				t.Errorf("%s line %d = %q, want aligned %q", label, i, rows[start+i], line)
+			}
+		}
+	}
+	assertFieldRows("Title", a.userInfo.profile.Title)
+	assertFieldRows("Email", a.userInfo.profile.Email)
+	assertFieldRows("Status", a.userInfo.status.Summary(time.Now(), "15:04"))
+	joined := strings.Join(rows, "\n")
+	if !strings.Contains(joined, "second line") || !strings.Contains(joined, "organization") {
+		t.Fatalf("multiline values were lost:\n%s", joined)
 	}
 }
 

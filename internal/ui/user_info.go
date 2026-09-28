@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"strings"
 	"time"
 	"unicode"
@@ -51,7 +50,7 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 	if name == "" {
 		name = m.name
 	}
-	rows := []string{name}
+	rows := wrappedProfileLines(name, innerWidth)
 	line := ""
 	if m.profile.Handle != "" {
 		line = "@" + m.profile.Handle
@@ -63,19 +62,15 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 		line += strings.ToUpper(m.presence[:1]) + m.presence[1:]
 	}
 	if line != "" {
-		rows = append(rows, line)
+		rows = append(rows, wrappedProfileLines(line, innerWidth)...)
 	}
 	add := func(label, value string) {
-		if value != "" {
-			rows = append(rows, fmt.Sprintf("%-10s %s", profileLine(label, 10), value))
-		}
+		rows = append(rows, userInfoFieldRows(label, value, innerWidth)...)
 	}
 	add("Real name", m.profile.RealName)
 	add("Title", m.profile.Title)
 	add("Pronouns", m.profile.Pronouns)
-	if status := cleanProfileText(m.status.Summary(time.Now(), "15:04")); status != "" {
-		rows = append(rows, strings.Split(messages.WordWrap(fmt.Sprintf("%-10s %s", "Status", status), innerWidth), "\n")...)
-	}
+	add("Status", m.status.Summary(time.Now(), "15:04"))
 	add("Time zone", m.profile.TimeZone)
 	add("Email", m.profile.Email)
 	add("Phone", m.profile.Phone)
@@ -95,7 +90,10 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 // cleanProfileText keeps Slack-provided values from injecting terminal controls.
 func cleanProfileText(s string) string {
 	return strings.Map(func(r rune) rune {
-		if r == '\n' || r == '\t' {
+		if r == '\n' {
+			return r
+		}
+		if r == '\t' {
 			return ' '
 		}
 		if unicode.IsControl(r) {
@@ -105,7 +103,36 @@ func cleanProfileText(s string) string {
 	}, s)
 }
 
-// profileLine keeps other profile fields on one line; the status uses WordWrap.
+func wrappedProfileLines(s string, width int) []string {
+	if width <= 0 {
+		return nil
+	}
+	return strings.Split(messages.WordWrap(cleanProfileText(s), width), "\n")
+}
+
+// userInfoFieldRows wraps a labeled value and aligns continuation lines under
+// the value column, keeping both soft wraps and embedded newlines readable.
+func userInfoFieldRows(label, value string, width int) []string {
+	if value == "" || width <= 0 {
+		return nil
+	}
+	labelWidth := min(10, max(1, width/3))
+	label = profileLine(strings.ReplaceAll(cleanProfileText(label), "\n", " "), labelWidth)
+	prefix := label + strings.Repeat(" ", max(0, labelWidth-lipgloss.Width(label))) + " "
+	prefixWidth := lipgloss.Width(prefix)
+	wrapped := wrappedProfileLines(value, max(1, width-prefixWidth))
+	if len(wrapped) == 0 {
+		return nil
+	}
+	rows := []string{prefix + wrapped[0]}
+	continuation := strings.Repeat(" ", prefixWidth)
+	for _, line := range wrapped[1:] {
+		rows = append(rows, continuation+line)
+	}
+	return rows
+}
+
+// profileLine removes terminal controls and truncates UI-owned single-line text.
 func profileLine(s string, width int) string {
 	s = cleanProfileText(s)
 	if width <= 0 {
