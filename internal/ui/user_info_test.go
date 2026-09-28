@@ -9,7 +9,9 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/gammons/slk/internal/core"
+	"github.com/gammons/slk/internal/ui/peerstatus"
 	"github.com/gammons/slk/internal/ui/sidebar"
+	"github.com/gammons/slk/internal/ui/styles"
 )
 
 func userInfoTestApp(t *testing.T) *App {
@@ -142,6 +144,43 @@ func TestUserInfoModalCapturesClicksAndKeys(t *testing.T) {
 	_, _ = a.Update(tea.MouseClickMsg{X: 0, Y: 0, Button: tea.MouseLeft})
 	if a.mode != ModeNormal || a.sidebar.SelectedID() != selected {
 		t.Fatal("outside click did not close popup without changing sidebar selection")
+	}
+}
+
+func TestUserInfoPopupBackgroundCoversBorderTextAndPadding(t *testing.T) {
+	a := userInfoTestApp(t)
+	_ = dispatchModeKey(a, keyPress('I'))
+	box := a.userInfo.renderBox(80, 25)
+	canvas := lipgloss.NewCanvas(lipgloss.Width(box), lipgloss.Height(box))
+	canvas.Compose(lipgloss.NewLayer(box))
+	for y := 0; y < lipgloss.Height(box); y++ {
+		for x := 0; x < lipgloss.Width(box); x++ {
+			cell := canvas.CellAt(x, y)
+			if cell != nil && cell.Width > 0 && !colorEqual(cell.Style.Bg, styles.Background) {
+				t.Errorf("cell (%d,%d) %q background = %v, want popup background", x, y, cell.Content, cell.Style.Bg)
+			}
+		}
+	}
+}
+
+func TestUserInfoLongStatusWrapsAndScrollsToEnd(t *testing.T) {
+	a := userInfoTestApp(t)
+	a.width, a.height = 42, 8
+	_ = dispatchModeKey(a, keyPress('I'))
+	a.userInfo.loading = false
+	a.userInfo.status = peerstatus.Status{Text: strings.Repeat("Scheduling another week with the team ", 4) + "FINAL-MARKER"}
+	var frames []string
+	for i := 0; i < 20; i++ {
+		box := a.userInfo.renderBox(42, 8)
+		if lipgloss.Width(box) > 42 || lipgloss.Height(box) > 8 {
+			t.Fatalf("status box exceeds 42x8: %dx%d", lipgloss.Width(box), lipgloss.Height(box))
+		}
+		frames = append(frames, ansi.Strip(box))
+		_ = dispatchModeKey(a, keyCode(tea.KeyDown))
+	}
+	got := strings.Join(frames, "\n")
+	if !strings.Contains(got, "Status") || !strings.Contains(got, "FINAL-MARKER") || strings.Contains(got, "…") {
+		t.Fatalf("status not fully visible by scrolling:\n%s", got)
 	}
 }
 

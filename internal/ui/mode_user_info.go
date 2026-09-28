@@ -9,9 +9,9 @@ func handleUserInfoMode(a *App, msg tea.KeyMsg) tea.Cmd {
 	case "esc", "q":
 		a.SetMode(ModeNormal)
 	case "j", "down":
-		a.userInfo.Scroll(1)
+		a.userInfo.Scroll(1, a.width)
 	case "k", "up":
-		a.userInfo.Scroll(-1)
+		a.userInfo.Scroll(-1, a.width)
 	}
 	return nil
 }

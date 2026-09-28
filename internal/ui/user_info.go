@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/x/ansi"
 
 	"github.com/gammons/slk/internal/core"
+	"github.com/gammons/slk/internal/ui/messages"
 	"github.com/gammons/slk/internal/ui/overlay"
 	"github.com/gammons/slk/internal/ui/peerstatus"
 	"github.com/gammons/slk/internal/ui/styles"
@@ -40,11 +41,12 @@ func (m *userInfoModal) Close() {
 
 func (m *userInfoModal) IsVisible() bool { return m.userID != "" }
 
-func (m *userInfoModal) Scroll(delta int) {
-	m.offset = max(0, min(m.offset+delta, len(m.rows())-1))
+func (m *userInfoModal) Scroll(delta, termWidth int) {
+	innerWidth := max(1, min(64, termWidth-2)-4)
+	m.offset = max(0, min(m.offset+delta, len(m.rows(innerWidth))-1))
 }
 
-func (m *userInfoModal) rows() []string {
+func (m *userInfoModal) rows(innerWidth int) []string {
 	name := m.profile.DisplayName
 	if name == "" {
 		name = m.name
@@ -71,7 +73,9 @@ func (m *userInfoModal) rows() []string {
 	add("Real name", m.profile.RealName)
 	add("Title", m.profile.Title)
 	add("Pronouns", m.profile.Pronouns)
-	add("Status", m.status.Summary(time.Now(), "15:04"))
+	if status := cleanProfileText(m.status.Summary(time.Now(), "15:04")); status != "" {
+		rows = append(rows, strings.Split(messages.WordWrap(fmt.Sprintf("%-10s %s", "Status", status), innerWidth), "\n")...)
+	}
 	add("Time zone", m.profile.TimeZone)
 	add("Email", m.profile.Email)
 	add("Phone", m.profile.Phone)
@@ -88,10 +92,9 @@ func (m *userInfoModal) rows() []string {
 	return rows
 }
 
-// profileLine removes terminal controls and forces Slack-provided values onto
-// one line before ANSI-aware truncation; the UI never interprets profile text.
-func profileLine(s string, width int) string {
-	s = strings.Map(func(r rune) rune {
+// cleanProfileText keeps Slack-provided values from injecting terminal controls.
+func cleanProfileText(s string) string {
+	return strings.Map(func(r rune) rune {
 		if r == '\n' || r == '\t' {
 			return ' '
 		}
@@ -100,6 +103,11 @@ func profileLine(s string, width int) string {
 		}
 		return r
 	}, s)
+}
+
+// profileLine keeps other profile fields on one line; the status uses WordWrap.
+func profileLine(s string, width int) string {
+	s = cleanProfileText(s)
 	if width <= 0 {
 		return ""
 	}
@@ -112,22 +120,25 @@ func (m *userInfoModal) renderBox(termWidth, termHeight int) string {
 	}
 	boxWidth := min(64, termWidth-2)
 	innerWidth := boxWidth - 4 // border and one column of padding on either side
-	rows := m.rows()
+	rows := m.rows(innerWidth)
 	visible := min(len(rows), termHeight-4) // title + footer + borders
 	start := min(m.offset, max(0, len(rows)-visible))
+	pad := func(line string) string {
+		return line + strings.Repeat(" ", max(0, innerWidth-lipgloss.Width(line)))
+	}
+	bg := styles.Background
 	lines := make([]string, 0, visible+2)
-	lines = append(lines, lipgloss.NewStyle().Foreground(styles.Primary).Bold(true).Render(profileLine("User info", innerWidth)))
+	lines = append(lines, lipgloss.NewStyle().Background(bg).Foreground(styles.Primary).Bold(true).Render(pad(profileLine("User info", innerWidth))))
+	bodyStyle := lipgloss.NewStyle().Background(bg).Foreground(styles.TextPrimary)
 	for _, row := range rows[start : start+visible] {
-		lines = append(lines, profileLine(row, innerWidth))
+		lines = append(lines, bodyStyle.Render(pad(profileLine(row, innerWidth))))
 	}
-	lines = append(lines, lipgloss.NewStyle().Foreground(styles.TextMuted).Render(profileLine("j/k scroll · Esc close", innerWidth)))
-	for i, line := range lines {
-		lines[i] = line + strings.Repeat(" ", max(0, innerWidth-lipgloss.Width(line)))
-	}
+	lines = append(lines, lipgloss.NewStyle().Background(bg).Foreground(styles.TextMuted).Render(pad(profileLine("j/k scroll · Esc close", innerWidth))))
+	content := messages.ReapplyBgAfterResets(strings.Join(lines, "\n"), messages.BgANSI()+messages.FgANSI())
 	return lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).BorderForeground(styles.Primary).
-		Background(styles.Background).Padding(0, 1).
-		Render(strings.Join(lines, "\n"))
+		Border(lipgloss.RoundedBorder()).BorderForeground(styles.Primary).BorderBackground(bg).
+		Background(bg).Padding(0, 1).
+		Render(content)
 }
 
 func (m *userInfoModal) BoxSize(termWidth, termHeight int) (int, int) {
