@@ -200,7 +200,7 @@ func (m *userInfoModal) renderBox(termWidth, termHeight int) string {
 	boxWidth := min(80, termWidth-2)
 	innerWidth := boxWidth - 4 // border and one column of padding on either side
 	rows := m.rows(innerWidth)
-	visible := min(len(rows), termHeight-4) // title + footer + borders
+	visible := min(len(rows), termHeight-5) // title, spacer, footer, and borders
 	start := min(m.offset, max(0, len(rows)-visible))
 	pad := func(line string) string {
 		return line + strings.Repeat(" ", max(0, innerWidth-lipgloss.Width(line)))
@@ -215,6 +215,7 @@ func (m *userInfoModal) renderBox(termWidth, termHeight int) string {
 	}
 	lines = append(lines, lipgloss.NewStyle().Background(bg).Foreground(styles.Primary).Bold(true).Render(pad(profileLine(title, innerWidth))))
 	bodyStyle := lipgloss.NewStyle().Background(bg).Foreground(styles.TextPrimary)
+	lines = append(lines, bodyStyle.Render(pad("")))
 	for _, row := range rows[start : start+visible] {
 		lines = append(lines, bodyStyle.Render(pad(profileLine(row, innerWidth))))
 	}

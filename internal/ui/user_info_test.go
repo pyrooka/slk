@@ -71,6 +71,23 @@ func TestUserInfoOpenAndLoad(t *testing.T) {
 	}
 }
 
+func TestUserInfoModalHasSpacerAfterTitle(t *testing.T) {
+	a := userInfoTestApp(t)
+	a.userInfo.Open("T1", "U1", "Avery", "", peerstatus.Status{})
+	a.userInfo.loading = false
+	a.userInfo.profile.DisplayName = "Avery Chen"
+	lines := strings.Split(ansi.Strip(a.userInfo.renderBox(80, 20)), "\n")
+	for i, line := range lines {
+		if strings.Contains(line, "User info") {
+			if i+2 >= len(lines) || strings.Trim(lines[i+1], " │") != "" || !strings.Contains(lines[i+2], "Avery Chen") {
+				t.Fatalf("expected one blank row after title: %q", lines)
+			}
+			return
+		}
+	}
+	t.Fatalf("title missing: %q", lines)
+}
+
 func TestUserInfoOnlyOpensForSidebarDM(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
