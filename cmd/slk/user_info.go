@@ -81,11 +81,33 @@ func conversationInfoFetcher(router *workspaceRouter, db *cache.DB) core.Convers
 			}
 		}
 		if kind == "group_dm" {
-			ids, err := wctx.Client.GetUsersInConversation(context.Background(), channelID)
-			if err != nil {
-				return core.ConversationInfo{}, err
+			ids, membersErr := wctx.Client.GetUsersInConversation(context.Background(), channelID)
+			memberCount := len(ids)
+			hasMemberCount := membersErr == nil
+			if membersErr != nil || len(ids) == 0 {
+				ch, err := wctx.Client.GetConversationInfo(context.Background(), channelID)
+				if err != nil {
+					if membersErr != nil {
+						return core.ConversationInfo{}, membersErr
+					}
+					return core.ConversationInfo{}, err
+				}
+				if ch == nil {
+					return core.ConversationInfo{}, errors.New("conversation info unavailable")
+				}
+				if len(ids) == 0 {
+					ids = ch.Members
+				}
+				memberCount = len(ids)
+				if memberCount == 0 {
+					memberCount = ch.NumMembers
+				}
+				hasMemberCount = memberCount > 0 || membersErr == nil
+				if !hasMemberCount {
+					return core.ConversationInfo{}, membersErr
+				}
 			}
-			info := core.ConversationInfo{MemberCount: len(ids), HasMemberCount: true, Members: make([]core.ConversationMember, 0, len(ids))}
+			info := core.ConversationInfo{MemberCount: memberCount, HasMemberCount: hasMemberCount, Members: make([]core.ConversationMember, 0, len(ids))}
 			for _, id := range ids {
 				info.Members = append(info.Members, core.ConversationMember{ID: id, Name: nameByID[id]})
 			}

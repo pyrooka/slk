@@ -21,6 +21,7 @@ func userInfoTestApp(t *testing.T) *App {
 		sidebar.ChannelItem{ID: "D1", Name: "Avery", Type: "dm", DMUserID: "U1", Presence: "active"},
 		sidebar.ChannelItem{ID: "D2", Name: "Build Bot", Type: "app", DMUserID: "U2"},
 		sidebar.ChannelItem{ID: "G1", Name: "Group", Type: "group_dm"},
+		sidebar.ChannelItem{ID: "G2", Type: "group_dm"},
 		sidebar.ChannelItem{ID: "C1", Name: "general", Type: "channel"},
 		sidebar.ChannelItem{ID: "P1", Name: "private-room", Type: "private"},
 	))
@@ -44,6 +45,10 @@ func TestUserInfoOpenAndLoad(t *testing.T) {
 	}
 	if a.userInfo.name != "Avery" || !a.userInfo.loading {
 		t.Fatalf("initial popup = %+v", a.userInfo)
+	}
+	loadingRows := strings.Join(a.userInfo.rows(60), "\n")
+	if strings.Contains(loadingRows, "User ID") || !strings.Contains(loadingRows, "Loading profile") {
+		t.Fatalf("partial profile shown while loading: %q", loadingRows)
 	}
 	result, ok := cmd().(UserProfileLoadedMsg)
 	if !ok || team != "T1" || user != "U1" || result.UserID != "U1" {
@@ -107,15 +112,17 @@ func TestUserInfoOnlyOpensForSidebarDM(t *testing.T) {
 
 func TestConversationInfoOpenAndRender(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		id   string
-		kind string
-		info core.ConversationInfo
-		want []string
+		name  string
+		id    string
+		kind  string
+		info  core.ConversationInfo
+		want  []string
+		title string
 	}{
-		{"group members", "G1", "group_dm", core.ConversationInfo{Members: []core.ConversationMember{{ID: "U1", Name: "Alice"}, {ID: "U2", Name: "Bob"}}, MemberCount: 2, HasMemberCount: true}, []string{"Group", "Members", "Alice", "Bob"}},
-		{"channel info", "C1", "channel", core.ConversationInfo{Topic: "Topic text", Description: "Purpose text", Creator: "Alice", MemberCount: 14, HasMemberCount: true}, []string{"general", "Topic text", "Purpose text", "Alice", "14"}},
-		{"missing channel count", "P1", "private", core.ConversationInfo{Creator: "U9"}, []string{"Unavailable", "U9"}},
+		{"group members", "G1", "group_dm", core.ConversationInfo{Members: []core.ConversationMember{{ID: "U1", Name: "Alice"}, {ID: "U2", Name: "Bob"}}, MemberCount: 2, HasMemberCount: true}, []string{"Group", "Members", "Alice", "Bob"}, "Group info"},
+		{"unnamed group members", "G2", "group_dm", core.ConversationInfo{Members: []core.ConversationMember{{ID: "U4"}}, MemberCount: 1, HasMemberCount: true}, []string{"Members", "U4", "1"}, "Group info"},
+		{"channel info", "C1", "channel", core.ConversationInfo{Topic: "Topic text", Description: "Purpose text", Creator: "Alice", MemberCount: 14, HasMemberCount: true}, []string{"general", "Topic text", "Purpose text", "Alice", "14"}, "Channel info"},
+		{"missing channel count", "P1", "private", core.ConversationInfo{Creator: "U9"}, []string{"Unavailable", "U9"}, "Channel info"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			a := userInfoTestApp(t)
@@ -129,18 +136,48 @@ func TestConversationInfoOpenAndRender(t *testing.T) {
 			if cmd == nil || a.mode != ModeUserInfo || a.userInfo.channelID != tc.id || a.userInfo.kind != tc.kind {
 				t.Fatalf("open: cmd=%v mode=%v popup=%+v", cmd != nil, a.mode, a.userInfo)
 			}
+			loadingRows := strings.Join(a.userInfo.rows(80), "\n")
+			if strings.Contains(loadingRows, "Members") || !strings.Contains(loadingRows, "Loading conversation info") {
+				t.Fatalf("partial content shown while loading: %q", loadingRows)
+			}
 			msg, ok := cmd().(ConversationInfoLoadedMsg)
 			if !ok || team != "T1" || channel != tc.id || kind != tc.kind {
 				t.Fatalf("fetch msg=%+v requested %s/%s/%s", msg, team, channel, kind)
 			}
 			a.Update(msg)
 			plain := ansi.Strip(a.userInfo.renderBox(100, 40))
+			if !strings.Contains(plain, tc.title) {
+				t.Errorf("title missing %q: %s", tc.title, plain)
+			}
 			for _, text := range tc.want {
 				if !strings.Contains(plain, text) {
 					t.Errorf("popup missing %q: %s", text, plain)
 				}
 			}
 		})
+	}
+}
+
+func TestConversationDescriptionRemainsAvailableWhenScrolled(t *testing.T) {
+	a := userInfoTestApp(t)
+	a.sidebar.SelectByID("C1")
+	a.SetConversationInfoFetcher(func(_, _, _ string) (core.ConversationInfo, error) {
+		return core.ConversationInfo{Description: strings.Repeat("Detailed channel purpose text. ", 40) + "description end marker"}, nil
+	})
+	msg := dispatchModeKey(a, keyPress('I'))().(ConversationInfoLoadedMsg)
+	a.Update(msg)
+	rows := a.userInfo.rows(76)
+	for i, row := range rows {
+		if lipgloss.Width(row) > 76 {
+			t.Errorf("row %d width %d exceeds 76", i, lipgloss.Width(row))
+		}
+	}
+	if !strings.Contains(strings.Join(rows, "\n"), "description end marker") {
+		t.Fatal("description was truncated from popup rows")
+	}
+	a.userInfo.Scroll(1000, 100)
+	if !strings.Contains(ansi.Strip(a.userInfo.renderBox(100, 12)), "description end marker") {
+		t.Fatal("scrolling could not reveal the full description")
 	}
 }
 

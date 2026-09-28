@@ -68,6 +68,35 @@ func TestConversationInfoFetcherUsesRequestedWorkspaceAndCachedNames(t *testing.
 	}
 }
 
+func TestConversationInfoFetcherFallsBackForEmptyGroupMemberResponse(t *testing.T) {
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/conversations.members":
+			if r.FormValue("channel") != "G2" {
+				t.Errorf("members channel = %q", r.FormValue("channel"))
+			}
+			_, _ = w.Write([]byte(`{"ok":true,"members":[],"response_metadata":{"next_cursor":""}}`))
+		case "/api/conversations.info":
+			if r.FormValue("channel") != "G2" {
+				t.Errorf("info channel = %q", r.FormValue("channel"))
+			}
+			_, _ = w.Write([]byte(`{"ok":true,"channel":{"id":"G2","num_members":3,"members":["U1","U2","U3"]}}`))
+		default:
+			t.Errorf("unexpected path %q", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	router := newWorkspaceRouter()
+	router.Add(&WorkspaceContext{TeamID: "T1", Client: newTestClient(t, server)})
+	info, err := conversationInfoFetcher(router, nil)("T1", "G2", "group_dm")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(info.Members) != 3 || info.MemberCount != 3 || !info.HasMemberCount {
+		t.Fatalf("group info = %+v", info)
+	}
+}
+
 func TestConversationInfoFetcherLoadsChannelDetails(t *testing.T) {
 	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/conversations.info" || r.FormValue("channel") != "C1" {

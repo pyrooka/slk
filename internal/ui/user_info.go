@@ -49,11 +49,25 @@ func (m *userInfoModal) Close() {
 func (m *userInfoModal) IsVisible() bool { return m.userID != "" || m.channelID != "" }
 
 func (m *userInfoModal) Scroll(delta, termWidth int) {
-	innerWidth := max(1, min(64, termWidth-2)-4)
+	innerWidth := max(1, min(80, termWidth-2)-4)
 	m.offset = max(0, min(m.offset+delta, len(m.rows(innerWidth))-1))
 }
 
 func (m *userInfoModal) rows(innerWidth int) []string {
+	if m.loading || m.err != nil {
+		rows := wrappedProfileLines(m.name, innerWidth)
+		if m.loading {
+			label := "Loading profile…"
+			if m.kind != "user" {
+				label = "Loading conversation info…"
+			}
+			return append(rows, label)
+		}
+		if m.kind == "user" {
+			return append(rows, "Profile unavailable")
+		}
+		return append(rows, wrappedProfileLines("Conversation info unavailable: "+m.err.Error(), innerWidth)...)
+	}
 	if m.kind != "user" {
 		rows := wrappedProfileLines(m.name, innerWidth)
 		add := func(label, value string) { rows = append(rows, userInfoFieldRows(label, value, innerWidth)...) }
@@ -65,7 +79,11 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 				}
 				add("Member", name)
 			}
-			add("Members", strconv.Itoa(len(m.info.Members)))
+			count := "Unavailable"
+			if m.info.HasMemberCount {
+				count = strconv.Itoa(m.info.MemberCount)
+			}
+			add("Members", count)
 		} else {
 			add("Topic", m.info.Topic)
 			add("Description", m.info.Description)
@@ -75,12 +93,6 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 			}
 			add("Members", count)
 			add("Creator", m.info.Creator)
-		}
-		if m.loading {
-			rows = append(rows, "Loading conversation info…")
-		}
-		if m.err != nil {
-			rows = append(rows, wrappedProfileLines("Conversation info unavailable: "+m.err.Error(), innerWidth)...)
 		}
 		return rows
 	}
@@ -115,12 +127,6 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 	add("User ID", m.userID)
 	for _, f := range m.profile.Fields {
 		add(f.Label, f.Value)
-	}
-	if m.loading {
-		rows = append(rows, "Loading profile…")
-	}
-	if m.err != nil {
-		rows = append(rows, "Profile unavailable")
 	}
 	return rows
 }
@@ -183,7 +189,7 @@ func (m *userInfoModal) renderBox(termWidth, termHeight int) string {
 	if !m.IsVisible() || termWidth < 8 || termHeight < 5 {
 		return ""
 	}
-	boxWidth := min(64, termWidth-2)
+	boxWidth := min(80, termWidth-2)
 	innerWidth := boxWidth - 4 // border and one column of padding on either side
 	rows := m.rows(innerWidth)
 	visible := min(len(rows), termHeight-4) // title + footer + borders
@@ -194,8 +200,10 @@ func (m *userInfoModal) renderBox(termWidth, termHeight int) string {
 	bg := styles.Background
 	lines := make([]string, 0, visible+2)
 	title := "User info"
-	if m.kind != "user" {
-		title = "Conversation info"
+	if m.kind == "group_dm" {
+		title = "Group info"
+	} else if m.kind != "user" {
+		title = "Channel info"
 	}
 	lines = append(lines, lipgloss.NewStyle().Background(bg).Foreground(styles.Primary).Bold(true).Render(pad(profileLine(title, innerWidth))))
 	bodyStyle := lipgloss.NewStyle().Background(bg).Foreground(styles.TextPrimary)
