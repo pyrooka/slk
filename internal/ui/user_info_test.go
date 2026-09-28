@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -152,6 +153,28 @@ func TestConversationInfoOpenAndRender(t *testing.T) {
 			for _, text := range tc.want {
 				if !strings.Contains(plain, text) {
 					t.Errorf("popup missing %q: %s", text, plain)
+				}
+			}
+			if tc.info.Description != "" && (!strings.Contains(plain, "Description") || strings.Contains(plain, "Descripti…")) {
+				t.Errorf("description label was truncated: %s", plain)
+			}
+			if tc.kind == "group_dm" {
+				members := make([]string, 0, len(tc.info.Members))
+				for _, member := range tc.info.Members {
+					if member.Name != "" {
+						members = append(members, member.Name)
+					} else {
+						members = append(members, member.ID)
+					}
+				}
+				value := strconv.Itoa(tc.info.MemberCount) + " · " + strings.Join(members, ", ")
+				wantRow := userInfoFieldRows("Members", value, 76)[0]
+				rows := strings.Join(a.userInfo.rows(76), "\n")
+				if !strings.Contains(rows, wantRow) {
+					t.Errorf("members are not a single comma-separated list: %q", rows)
+				}
+				if len(members) > 0 && strings.Contains(rows, userInfoFieldRows("Member", members[0], 76)[0]) {
+					t.Errorf("member is still listed separately: %q", rows)
 				}
 			}
 		})

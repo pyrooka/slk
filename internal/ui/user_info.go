@@ -72,16 +72,24 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 		rows := wrappedProfileLines(m.name, innerWidth)
 		add := func(label, value string) { rows = append(rows, userInfoFieldRows(label, value, innerWidth)...) }
 		if m.kind == "group_dm" {
+			names := make([]string, 0, len(m.info.Members))
 			for _, member := range m.info.Members {
 				name := member.Name
 				if name == "" {
 					name = member.ID
 				}
-				add("Member", name)
+				names = append(names, name)
 			}
 			count := "Unavailable"
 			if m.info.HasMemberCount {
 				count = strconv.Itoa(m.info.MemberCount)
+			}
+			if members := strings.Join(names, ", "); members != "" {
+				if count == "Unavailable" {
+					count = members
+				} else {
+					count += " · " + members
+				}
 			}
 			add("Members", count)
 		} else {
@@ -160,7 +168,7 @@ func userInfoFieldRows(label, value string, width int) []string {
 	if value == "" || width <= 0 {
 		return nil
 	}
-	labelWidth := min(10, max(1, width/3))
+	labelWidth := min(11, max(1, width-2))
 	label = profileLine(strings.ReplaceAll(cleanProfileText(label), "\n", " "), labelWidth)
 	prefix := label + strings.Repeat(" ", max(0, labelWidth-lipgloss.Width(label))) + " "
 	prefixWidth := lipgloss.Width(prefix)
