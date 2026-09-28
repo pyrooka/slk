@@ -55,7 +55,7 @@ func (m *userInfoModal) Scroll(delta, termWidth int) {
 
 func (m *userInfoModal) rows(innerWidth int) []string {
 	if m.loading || m.err != nil {
-		rows := wrappedProfileLines(m.name, innerWidth)
+		rows := userInfoFieldRows("Name", m.name, innerWidth)
 		if m.loading {
 			label := "Loading profile…"
 			if m.kind != "user" {
@@ -69,8 +69,9 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 		return append(rows, wrappedProfileLines("Conversation info unavailable: "+m.err.Error(), innerWidth)...)
 	}
 	if m.kind != "user" {
-		rows := wrappedProfileLines(m.name, innerWidth)
+		rows := []string{}
 		add := func(label, value string) { rows = append(rows, userInfoFieldRows(label, value, innerWidth)...) }
+		add("Name", m.name)
 		if m.kind == "group_dm" {
 			names := make([]string, 0, len(m.info.Members))
 			for _, member := range m.info.Members {
@@ -108,7 +109,7 @@ func (m *userInfoModal) rows(innerWidth int) []string {
 	if name == "" {
 		name = m.name
 	}
-	rows := wrappedProfileLines(name, innerWidth)
+	rows := userInfoFieldRows("Name", name, innerWidth)
 	line := ""
 	if m.profile.Handle != "" {
 		line = "@" + m.profile.Handle

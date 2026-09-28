@@ -59,6 +59,9 @@ func TestUserInfoOpenAndLoad(t *testing.T) {
 	if a.userInfo.loading || a.userInfo.profile.Email != "avery@example.com" {
 		t.Fatalf("loaded popup = %+v", a.userInfo)
 	}
+	if !strings.Contains(strings.Join(a.userInfo.rows(60), "\n"), userInfoFieldRows("Name", "Avery Chen", 60)[0]) {
+		t.Fatal("profile name does not use attribute formatting")
+	}
 	plain := ansi.Strip(a.userInfo.ViewOverlay(a.width, a.height, strings.Repeat(" ", a.width)))
 	for _, part := range []string{"Avery Chen", "@avery", "Engineer", "avery@example.com"} {
 		if !strings.Contains(plain, part) {
@@ -163,6 +166,9 @@ func TestConversationInfoOpenAndRender(t *testing.T) {
 				t.Fatalf("fetch msg=%+v requested %s/%s/%s", msg, team, channel, kind)
 			}
 			a.Update(msg)
+			if a.userInfo.name != "" && !strings.Contains(strings.Join(a.userInfo.rows(76), "\n"), userInfoFieldRows("Name", a.userInfo.name, 76)[0]) {
+				t.Errorf("conversation name does not use attribute formatting")
+			}
 			plain := ansi.Strip(a.userInfo.renderBox(100, 40))
 			if !strings.Contains(plain, tc.title) {
 				t.Errorf("title missing %q: %s", tc.title, plain)
