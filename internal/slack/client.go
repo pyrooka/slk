@@ -551,7 +551,7 @@ func (c *Client) GetChannels(ctx context.Context) ([]slack.Channel, error) {
 
 // GetConversationInfo fetches one conversation (conversations.info).
 func (c *Client) GetConversationInfo(ctx context.Context, channelID string) (*slack.Channel, error) {
-	ch, err := c.api.GetConversationInfoContext(ctx, &slack.GetConversationInfoInput{ChannelID: channelID})
+	ch, err := c.api.GetConversationInfoContext(ctx, &slack.GetConversationInfoInput{ChannelID: channelID, IncludeNumMembers: true})
 	if err != nil {
 		return nil, fmt.Errorf("getting conversation %s: %w", channelID, err)
 	}

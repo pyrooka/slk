@@ -205,8 +205,9 @@ type App struct {
 	// delete / mark-unread / permalink). See internal/ui/services.go.
 	// Defaulted to a no-op adapter in NewApp so call sites can dispatch
 	// without nil-checks.
-	messageSvc         core.MessageService
-	userProfileFetcher core.UserProfileFetchFunc
+	messageSvc              core.MessageService
+	userProfileFetcher      core.UserProfileFetchFunc
+	conversationInfoFetcher core.ConversationInfoFetchFunc
 
 	// files uploads and downloads attachments. Nil until wired; both
 	// paths toast when it is unset.
@@ -2552,6 +2553,11 @@ func (a *App) SetChannelService(s core.ChannelService) {
 // SetUserProfileFetcher wires the on-demand users.info lookup.
 func (a *App) SetUserProfileFetcher(fetch core.UserProfileFetchFunc) {
 	a.userProfileFetcher = fetch
+}
+
+// SetConversationInfoFetcher wires on-demand group/channel details.
+func (a *App) SetConversationInfoFetcher(fetch core.ConversationInfoFetchFunc) {
+	a.conversationInfoFetcher = fetch
 }
 
 // SetSearchService injects the search backend (wired by cmd/slk).

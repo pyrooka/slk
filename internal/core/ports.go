@@ -359,6 +359,9 @@ type WorkspaceService interface {
 // Callers run it in a Bubble Tea command, never on the Update loop.
 type UserProfileFetchFunc func(teamID, userID string) (UserProfile, error)
 
+// ConversationInfoFetchFunc loads group members or channel metadata on demand.
+type ConversationInfoFetchFunc func(teamID, channelID, kind string) (ConversationInfo, error)
+
 // AvatarService renders user avatars for the message panes.
 type AvatarService interface {
 	// Avatar returns the rendered half-block avatar for userID, or ""

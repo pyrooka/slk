@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"slices"
+	"strings"
 
+	"github.com/gammons/slk/internal/cache"
 	"github.com/gammons/slk/internal/core"
 )
 
@@ -55,4 +58,69 @@ func userProfileFetcher(router *workspaceRouter) core.UserProfileFetchFunc {
 		}
 		return p, nil
 	}
+}
+
+func conversationInfoFetcher(router *workspaceRouter, db *cache.DB) core.ConversationInfoFetchFunc {
+	return func(teamID, channelID, kind string) (core.ConversationInfo, error) {
+		wctx := router.ByID(teamID)
+		if wctx == nil || wctx.Client == nil {
+			return core.ConversationInfo{}, errors.New("workspace unavailable")
+		}
+		nameByID := make(map[string]string)
+		if db != nil {
+			if users, err := db.ListUsers(teamID); err == nil {
+				for _, user := range users {
+					name := user.DisplayName
+					if name == "" {
+						name = user.Name
+					}
+					if name != "" {
+						nameByID[user.ID] = name
+					}
+				}
+			}
+		}
+		if kind == "group_dm" {
+			ids, err := wctx.Client.GetUsersInConversation(context.Background(), channelID)
+			if err != nil {
+				return core.ConversationInfo{}, err
+			}
+			info := core.ConversationInfo{MemberCount: len(ids), HasMemberCount: true, Members: make([]core.ConversationMember, 0, len(ids))}
+			for _, id := range ids {
+				info.Members = append(info.Members, core.ConversationMember{ID: id, Name: nameByID[id]})
+			}
+			slices.SortFunc(info.Members, func(a, b core.ConversationMember) int {
+				if c := strings.Compare(strings.ToLower(memberDisplayName(a)), strings.ToLower(memberDisplayName(b))); c != 0 {
+					return c
+				}
+				return strings.Compare(a.ID, b.ID)
+			})
+			return info, nil
+		}
+		ch, err := wctx.Client.GetConversationInfo(context.Background(), channelID)
+		if err != nil {
+			return core.ConversationInfo{}, err
+		}
+		if ch == nil {
+			return core.ConversationInfo{}, errors.New("conversation info unavailable")
+		}
+		info := core.ConversationInfo{Topic: ch.Topic.Value, Description: ch.Purpose.Value}
+		if ch.Creator != "" {
+			info.Creator = nameByID[ch.Creator]
+			if info.Creator == "" {
+				info.Creator = ch.Creator
+			}
+		}
+		if ch.NumMembers > 0 {
+			info.MemberCount, info.HasMemberCount = ch.NumMembers, true
+		}
+		return info, nil
+	}
+}
+
+func memberDisplayName(member core.ConversationMember) string {
+	if member.Name != "" {
+		return member.Name
+	}
+	return member.ID
 }

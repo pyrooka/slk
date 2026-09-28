@@ -25,6 +25,16 @@ type UserProfile struct {
 
 type ProfileField struct{ Label, Value string }
 
+// ConversationInfo contains on-demand metadata for a group DM or channel.
+type ConversationInfo struct {
+	Topic, Description, Creator string
+	MemberCount                 int
+	HasMemberCount              bool
+	Members                     []ConversationMember
+}
+
+type ConversationMember struct{ ID, Name string }
+
 // ForwardResult identifies the message Slack posted in the destination.
 // Text is the source permalink; preview attachments arrive via WebSocket.
 type ForwardResult struct {

@@ -36,6 +36,13 @@ type UserProfileLoadedMsg struct {
 	Err            error
 }
 
+type ConversationInfoLoadedMsg struct {
+	TeamID, ChannelID, Kind string
+	RequestID               uint64
+	Info                    core.ConversationInfo
+	Err                     error
+}
+
 // EmojiImageReadyMsg re-exports emoji.EmojiImageReadyMsg so reducers
 // can refer to it without an extra import. Dispatched when a previously
 // cold-cache emoji finishes fetching and is now warm-renderable across

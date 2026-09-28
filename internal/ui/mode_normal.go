@@ -74,19 +74,35 @@ func handleNormalMode(a *App, msg tea.KeyMsg) tea.Cmd {
 			return nil
 		}
 		item, ok := a.sidebar.SelectedItem()
-		if !ok || (item.Type != "dm" && item.Type != "app") || item.DMUserID == "" {
+		if !ok {
 			return nil
 		}
-		a.userInfo.Open(a.activeTeamID, item.DMUserID, item.Name, item.Presence, item.Status)
+		if (item.Type == "dm" || item.Type == "app") && item.DMUserID != "" {
+			a.userInfo.Open(a.activeTeamID, item.DMUserID, item.Name, item.Presence, item.Status)
+			a.SetMode(ModeUserInfo)
+			teamID, userID, requestID := a.activeTeamID, item.DMUserID, a.userInfo.requestID
+			fetch := a.userProfileFetcher
+			return func() tea.Msg {
+				if fetch == nil {
+					return UserProfileLoadedMsg{TeamID: teamID, UserID: userID, RequestID: requestID, Err: errors.New("profile service unavailable")}
+				}
+				profile, err := fetch(teamID, userID)
+				return UserProfileLoadedMsg{TeamID: teamID, UserID: userID, RequestID: requestID, Profile: profile, Err: err}
+			}
+		}
+		if item.Type != "group_dm" && item.Type != "channel" && item.Type != "private" {
+			return nil
+		}
+		a.userInfo.OpenConversation(a.activeTeamID, item.ID, item.Name, item.Type)
 		a.SetMode(ModeUserInfo)
-		teamID, userID, requestID := a.activeTeamID, item.DMUserID, a.userInfo.requestID
-		fetch := a.userProfileFetcher
+		teamID, channelID, kind, requestID := a.activeTeamID, item.ID, item.Type, a.userInfo.requestID
+		fetch := a.conversationInfoFetcher
 		return func() tea.Msg {
 			if fetch == nil {
-				return UserProfileLoadedMsg{TeamID: teamID, UserID: userID, RequestID: requestID, Err: errors.New("profile service unavailable")}
+				return ConversationInfoLoadedMsg{TeamID: teamID, ChannelID: channelID, Kind: kind, RequestID: requestID, Err: errors.New("conversation info service unavailable")}
 			}
-			profile, err := fetch(teamID, userID)
-			return UserProfileLoadedMsg{TeamID: teamID, UserID: userID, RequestID: requestID, Profile: profile, Err: err}
+			info, err := fetch(teamID, channelID, kind)
+			return ConversationInfoLoadedMsg{TeamID: teamID, ChannelID: channelID, Kind: kind, RequestID: requestID, Info: info, Err: err}
 		}
 
 	case key.Matches(msg, a.keys.InsertMode):

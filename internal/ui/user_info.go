@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strconv"
 	"strings"
 	"time"
 	"unicode"
@@ -18,19 +19,26 @@ import (
 // userInfoModal keeps a single on-demand profile; requestID survives Close so
 // a late result from an earlier opening can never populate a later one.
 type userInfoModal struct {
-	teamID, userID, name, presence string
-	requestID                      uint64
-	status                         peerstatus.Status
-	profile                        core.UserProfile
-	loading                        bool
-	err                            error
-	offset                         int
+	teamID, userID, channelID, kind, name, presence string
+	requestID                                       uint64
+	status                                          peerstatus.Status
+	profile                                         core.UserProfile
+	info                                            core.ConversationInfo
+	loading                                         bool
+	err                                             error
+	offset                                          int
 }
 
 func (m *userInfoModal) Open(teamID, userID, name, presence string, status peerstatus.Status) {
 	m.requestID++
 	id := m.requestID
-	*m = userInfoModal{teamID: teamID, userID: userID, name: name, presence: presence, status: status, loading: true, requestID: id}
+	*m = userInfoModal{teamID: teamID, userID: userID, kind: "user", name: name, presence: presence, status: status, loading: true, requestID: id}
+}
+
+func (m *userInfoModal) OpenConversation(teamID, channelID, name, kind string) {
+	m.requestID++
+	id := m.requestID
+	*m = userInfoModal{teamID: teamID, channelID: channelID, name: name, kind: kind, loading: true, requestID: id}
 }
 
 func (m *userInfoModal) Close() {
@@ -38,7 +46,7 @@ func (m *userInfoModal) Close() {
 	*m = userInfoModal{requestID: id}
 }
 
-func (m *userInfoModal) IsVisible() bool { return m.userID != "" }
+func (m *userInfoModal) IsVisible() bool { return m.userID != "" || m.channelID != "" }
 
 func (m *userInfoModal) Scroll(delta, termWidth int) {
 	innerWidth := max(1, min(64, termWidth-2)-4)
@@ -46,6 +54,36 @@ func (m *userInfoModal) Scroll(delta, termWidth int) {
 }
 
 func (m *userInfoModal) rows(innerWidth int) []string {
+	if m.kind != "user" {
+		rows := wrappedProfileLines(m.name, innerWidth)
+		add := func(label, value string) { rows = append(rows, userInfoFieldRows(label, value, innerWidth)...) }
+		if m.kind == "group_dm" {
+			for _, member := range m.info.Members {
+				name := member.Name
+				if name == "" {
+					name = member.ID
+				}
+				add("Member", name)
+			}
+			add("Members", strconv.Itoa(len(m.info.Members)))
+		} else {
+			add("Topic", m.info.Topic)
+			add("Description", m.info.Description)
+			count := "Unavailable"
+			if m.info.HasMemberCount {
+				count = strconv.Itoa(m.info.MemberCount)
+			}
+			add("Members", count)
+			add("Creator", m.info.Creator)
+		}
+		if m.loading {
+			rows = append(rows, "Loading conversation info…")
+		}
+		if m.err != nil {
+			rows = append(rows, wrappedProfileLines("Conversation info unavailable: "+m.err.Error(), innerWidth)...)
+		}
+		return rows
+	}
 	name := m.profile.DisplayName
 	if name == "" {
 		name = m.name
@@ -155,7 +193,11 @@ func (m *userInfoModal) renderBox(termWidth, termHeight int) string {
 	}
 	bg := styles.Background
 	lines := make([]string, 0, visible+2)
-	lines = append(lines, lipgloss.NewStyle().Background(bg).Foreground(styles.Primary).Bold(true).Render(pad(profileLine("User info", innerWidth))))
+	title := "User info"
+	if m.kind != "user" {
+		title = "Conversation info"
+	}
+	lines = append(lines, lipgloss.NewStyle().Background(bg).Foreground(styles.Primary).Bold(true).Render(pad(profileLine(title, innerWidth))))
 	bodyStyle := lipgloss.NewStyle().Background(bg).Foreground(styles.TextPrimary)
 	for _, row := range rows[start : start+visible] {
 		lines = append(lines, bodyStyle.Render(pad(profileLine(row, innerWidth))))

@@ -730,6 +730,7 @@ func run() error {
 		}
 		app.SetUnreadService(core.NewUnreadService(channelReadStates, unreadWorkspaces))
 		app.SetUserProfileFetcher(userProfileFetcher(router))
+		app.SetConversationInfoFetcher(conversationInfoFetcher(router, db))
 
 		app.SetChannelService(core.NewChannelService(core.ChannelServiceFuncs{
 			RecordVisit: func(channelID ids.ChannelID) {

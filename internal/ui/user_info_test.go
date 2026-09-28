@@ -22,6 +22,7 @@ func userInfoTestApp(t *testing.T) *App {
 		sidebar.ChannelItem{ID: "D2", Name: "Build Bot", Type: "app", DMUserID: "U2"},
 		sidebar.ChannelItem{ID: "G1", Name: "Group", Type: "group_dm"},
 		sidebar.ChannelItem{ID: "C1", Name: "general", Type: "channel"},
+		sidebar.ChannelItem{ID: "P1", Name: "private-room", Type: "private"},
 	))
 	a.sidebar.SelectByID("D1")
 	if item, ok := a.sidebar.SelectedItem(); !ok || item.DMUserID != "U1" {
@@ -74,8 +75,8 @@ func TestUserInfoOnlyOpensForSidebarDM(t *testing.T) {
 	}{
 		{"human", "D1", PanelSidebar, false, true},
 		{"app", "D2", PanelSidebar, false, true},
-		{"group", "G1", PanelSidebar, false, false},
-		{"channel", "C1", PanelSidebar, false, false},
+		{"group", "G1", PanelSidebar, false, true},
+		{"channel", "C1", PanelSidebar, false, true},
 		{"other focus", "D1", PanelMessages, false, false},
 		{"hidden", "D1", PanelSidebar, true, false},
 	} {
@@ -87,12 +88,13 @@ func TestUserInfoOnlyOpensForSidebarDM(t *testing.T) {
 				a.sidebarVisible = false
 			}
 			a.SetUserProfileFetcher(func(_, _ string) (core.UserProfile, error) { return core.UserProfile{}, nil })
+			a.SetConversationInfoFetcher(func(_, _, _ string) (core.ConversationInfo, error) { return core.ConversationInfo{}, nil })
 			cmd := dispatchModeKey(a, keyPress('I'))
 			if got := a.mode == ModeUserInfo && cmd != nil; got != tc.want {
 				t.Fatalf("opened=%v, want %v", got, tc.want)
 			}
-			if tc.want && a.userInfo.userID == "" {
-				t.Fatal("missing selected user ID")
+			if tc.want && a.userInfo.IsVisible() == false {
+				t.Fatal("popup not visible")
 			}
 		})
 	}
@@ -100,6 +102,75 @@ func TestUserInfoOnlyOpensForSidebarDM(t *testing.T) {
 	_ = dispatchModeKey(a, keyPress('i'))
 	if a.mode != ModeInsert {
 		t.Fatalf("i mode = %v", a.mode)
+	}
+}
+
+func TestConversationInfoOpenAndRender(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		id   string
+		kind string
+		info core.ConversationInfo
+		want []string
+	}{
+		{"group members", "G1", "group_dm", core.ConversationInfo{Members: []core.ConversationMember{{ID: "U1", Name: "Alice"}, {ID: "U2", Name: "Bob"}}, MemberCount: 2, HasMemberCount: true}, []string{"Group", "Members", "Alice", "Bob"}},
+		{"channel info", "C1", "channel", core.ConversationInfo{Topic: "Topic text", Description: "Purpose text", Creator: "Alice", MemberCount: 14, HasMemberCount: true}, []string{"general", "Topic text", "Purpose text", "Alice", "14"}},
+		{"missing channel count", "P1", "private", core.ConversationInfo{Creator: "U9"}, []string{"Unavailable", "U9"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := userInfoTestApp(t)
+			a.sidebar.SelectByID(tc.id)
+			var team, channel, kind string
+			a.SetConversationInfoFetcher(func(tid, cid, typ string) (core.ConversationInfo, error) {
+				team, channel, kind = tid, cid, typ
+				return tc.info, nil
+			})
+			cmd := dispatchModeKey(a, keyPress('I'))
+			if cmd == nil || a.mode != ModeUserInfo || a.userInfo.channelID != tc.id || a.userInfo.kind != tc.kind {
+				t.Fatalf("open: cmd=%v mode=%v popup=%+v", cmd != nil, a.mode, a.userInfo)
+			}
+			msg, ok := cmd().(ConversationInfoLoadedMsg)
+			if !ok || team != "T1" || channel != tc.id || kind != tc.kind {
+				t.Fatalf("fetch msg=%+v requested %s/%s/%s", msg, team, channel, kind)
+			}
+			a.Update(msg)
+			plain := ansi.Strip(a.userInfo.renderBox(100, 40))
+			for _, text := range tc.want {
+				if !strings.Contains(plain, text) {
+					t.Errorf("popup missing %q: %s", text, plain)
+				}
+			}
+		})
+	}
+}
+
+func TestConversationInfoShowsFetchErrors(t *testing.T) {
+	a := userInfoTestApp(t)
+	a.sidebar.SelectByID("C1")
+	a.SetConversationInfoFetcher(func(_, _, _ string) (core.ConversationInfo, error) {
+		return core.ConversationInfo{}, errors.New("denied")
+	})
+	msg := dispatchModeKey(a, keyPress('I'))().(ConversationInfoLoadedMsg)
+	a.Update(msg)
+	if !strings.Contains(strings.Join(a.userInfo.rows(80), "\n"), "denied") {
+		t.Fatal("fetch error was hidden")
+	}
+}
+
+func TestConversationInfoResultDroppedAfterNewSelection(t *testing.T) {
+	a := userInfoTestApp(t)
+	a.sidebar.SelectByID("G1")
+	a.SetConversationInfoFetcher(func(_, _, _ string) (core.ConversationInfo, error) { return core.ConversationInfo{Topic: "stale"}, nil })
+	first := dispatchModeKey(a, keyPress('I'))().(ConversationInfoLoadedMsg)
+	a.Update(keyCode(tea.KeyEscape))
+	a.sidebar.SelectByID("C1")
+	second := dispatchModeKey(a, keyPress('I'))().(ConversationInfoLoadedMsg)
+	if first.RequestID == second.RequestID {
+		t.Fatal("request IDs reused")
+	}
+	a.Update(first)
+	if a.userInfo.channelID != "C1" || a.userInfo.info.Topic != "" {
+		t.Fatalf("stale result applied: %+v", a.userInfo)
 	}
 }
 
