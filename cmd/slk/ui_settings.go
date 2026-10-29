@@ -26,6 +26,8 @@ type uiSettings struct {
 	ColoredUsernames bool
 	ThreadAvatars    bool
 	ThemeOverrides   core.Theme
+	// ShowUnreadInCollapsed is [sidebar] show_unread_in_collapsed.
+	ShowUnreadInCollapsed bool
 	// StayInInsertAfterSend is [compose] stay_in_insert_after_send
 	// (default off).
 	StayInInsertAfterSend bool
@@ -53,6 +55,7 @@ func uiSettingsFromConfig(cfg config.Config) uiSettings {
 		RightAlignBadges:      cfg.Sidebar.RightAlignBadges,
 		ChannelIndent:         cfg.Sidebar.ChannelIndent,
 		SidebarStyle:          sidebarStyleFromConfig(cfg.Sidebar),
+		ShowUnreadInCollapsed: cfg.Sidebar.ShowUnreadInCollapsed,
 		MouseWheelLines:       cfg.Appearance.MouseWheelLines,
 		ColoredUsernames:      cfg.Appearance.ColoredUsernames,
 		ThreadAvatars:         cfg.Appearance.ThreadAvatars,
@@ -78,6 +81,7 @@ func applyUISettings(app *ui.App, s uiSettings) {
 	app.SetSidebarStyle(s.SidebarStyle)
 	app.SetSidebarStaleThreshold(s.StaleAfter)
 	app.SetMentionPills(s.MentionPills)
+	app.SetSidebarShowUnreadInCollapsed(s.ShowUnreadInCollapsed)
 	app.SetMouseWheelLines(s.MouseWheelLines)
 	app.SetColoredUsernames(s.ColoredUsernames)
 	app.SetThreadAvatars(s.ThreadAvatars)
