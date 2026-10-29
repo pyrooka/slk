@@ -20,6 +20,10 @@ image_protocol = "auto"   # auto | kitty | sixel | halfblock | off
 max_image_rows = 20       # cap inline image height in terminal rows
 colored_usernames = false # color each user's name by ID hash (Slack-style)
 
+[sidebar]
+show_unread_in_collapsed = false  # true keeps a collapsed section's unread
+                                  # channels (and the open one) visible
+
 [animations]
 enabled = true
 smooth_scrolling = true

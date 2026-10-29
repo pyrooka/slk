@@ -18,9 +18,11 @@ type uiSettings struct {
 	TimestampFormat  string
 	TypingIndicators bool
 	StaleAfter       time.Duration
-	MouseWheelLines  int
-	ColoredUsernames bool
-	ThemeOverrides   core.Theme
+	// ShowUnreadInCollapsed is [sidebar] show_unread_in_collapsed.
+	ShowUnreadInCollapsed bool
+	MouseWheelLines       int
+	ColoredUsernames      bool
+	ThemeOverrides        core.Theme
 	// StayInInsertAfterSend is [compose] stay_in_insert_after_send
 	// (default off).
 	StayInInsertAfterSend bool
@@ -32,6 +34,7 @@ func uiSettingsFromConfig(cfg config.Config) uiSettings {
 		TimestampFormat:       cfg.Appearance.TimestampFormat,
 		TypingIndicators:      cfg.Animations.TypingIndicators,
 		StaleAfter:            time.Duration(cfg.Sidebar.HideInactiveAfterDays) * 24 * time.Hour,
+		ShowUnreadInCollapsed: cfg.Sidebar.ShowUnreadInCollapsed,
 		MouseWheelLines:       cfg.Appearance.MouseWheelLines,
 		ColoredUsernames:      cfg.Appearance.ColoredUsernames,
 		ThemeOverrides:        cfg.Theme,
@@ -51,6 +54,7 @@ func applyUISettings(app *ui.App, s uiSettings) {
 	})
 	app.SetTypingEnabled(s.TypingIndicators)
 	app.SetSidebarStaleThreshold(s.StaleAfter)
+	app.SetSidebarShowUnreadInCollapsed(s.ShowUnreadInCollapsed)
 	app.SetMouseWheelLines(s.MouseWheelLines)
 	app.SetColoredUsernames(s.ColoredUsernames)
 	app.SetThemeItems(styles.ThemeNames())

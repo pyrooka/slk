@@ -1071,3 +1071,13 @@ func TestConfig_ShowAvatars(t *testing.T) {
 		t.Error("expected show_avatars = false to turn avatars off")
 	}
 }
+
+func TestSidebarShowUnreadInCollapsed(t *testing.T) {
+	if Default().Sidebar.ShowUnreadInCollapsed {
+		t.Error("default should be off")
+	}
+	cfg := loadConfigString(t, "[sidebar]\nshow_unread_in_collapsed = true\n")
+	if !cfg.Sidebar.ShowUnreadInCollapsed {
+		t.Error("show_unread_in_collapsed = true did not load")
+	}
+}

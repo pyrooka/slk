@@ -167,6 +167,9 @@ type Sidebar struct {
 	// hidden regardless of this setting.
 	HideInactiveAfterDays int `toml:"hide_inactive_after_days"`
 	Width                 int `toml:"width"`
+	// ShowUnreadInCollapsed keeps a collapsed section's unread channels
+	// (and the open channel) visible under its header. Default off.
+	ShowUnreadInCollapsed bool `toml:"show_unread_in_collapsed"`
 }
 
 // Marks holds preferences for vim-style marks.
