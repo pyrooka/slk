@@ -325,6 +325,25 @@ func TestHelpModeKeys(t *testing.T) {
 			},
 		},
 		{
+			name: "space then ctrl+w while searching deletes only the last word",
+			setup: func(t *testing.T, a *App) {
+				openHelpSearching(t, a)
+				_ = dispatchModeKey(a, keyPress('u'))
+				_ = dispatchModeKey(a, keyCode(tea.KeySpace))
+				_ = dispatchModeKey(a, keyPress('p'))
+				if a.help.Query() != "u p" {
+					t.Fatalf("precondition: query = %q, want %q", a.help.Query(), "u p")
+				}
+			},
+			key:      keyMod('w', tea.ModCtrl),
+			wantMode: ModeHelp,
+			assert: func(t *testing.T, a *App, _ tea.Cmd) {
+				if got := a.help.Query(); got != "u " {
+					t.Errorf("query = %q, want %q", got, "u ")
+				}
+			},
+		},
+		{
 			name: "enter while searching keeps the filter and leaves search mode",
 			setup: func(t *testing.T, a *App) {
 				openHelpSearching(t, a)

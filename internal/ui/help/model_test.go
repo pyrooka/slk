@@ -180,6 +180,56 @@ func TestSearchBackspace(t *testing.T) {
 	}
 }
 
+func TestSearchCtrlWDeletesLastWord(t *testing.T) {
+	tests := []struct{ name, query, want string }{
+		{"empty", "", ""},
+		{"one word", "foo", ""},
+		{"two words", "foo bar", "foo "},
+		{"trailing spaces", "foo bar  ", "foo "},
+		{"only spaces", "  ", ""},
+		{"multi-byte word", "foo 中文", "foo "},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := New()
+			m.SetEntries(sampleEntries())
+			m.Open()
+			m.HandleKey("/")
+			for _, r := range tt.query {
+				if r == ' ' {
+					m.HandleKey("space")
+				} else {
+					m.HandleKey(string(r))
+				}
+			}
+			m.HandleKey("ctrl+w")
+			if m.Query() != tt.want {
+				t.Errorf("Query = %q, want %q", m.Query(), tt.want)
+			}
+			if !m.IsSearching() {
+				t.Error("ctrl+w must stay in search")
+			}
+		})
+	}
+}
+
+func TestSearchCtrlWRefilters(t *testing.T) {
+	m := New()
+	m.SetEntries(sampleEntries())
+	m.Open()
+	m.HandleKey("/")
+	for _, r := range "nomatch" {
+		m.HandleKey(string(r))
+	}
+	if got := len(m.VisibleEntries()); got != 0 {
+		t.Fatalf("precondition: %d entries match nomatch, want 0", got)
+	}
+	m.HandleKey("ctrl+w")
+	if got, want := len(m.VisibleEntries()), len(sampleEntries()); got != want {
+		t.Errorf("after ctrl+w %d entries visible, want %d", got, want)
+	}
+}
+
 func TestEscFromSearchExitsSearch(t *testing.T) {
 	m := New()
 	m.SetEntries(sampleEntries())

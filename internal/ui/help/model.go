@@ -135,9 +135,10 @@ func (m Model) VisibleEntries() []Entry {
 // HandleKey processes a key event for the help modal.
 //
 // Behavior:
-//   - While searching (/-mode): printable runes append to the query, backspace
-//     deletes, enter exits search mode keeping the filter, esc exits search
-//     mode and clears the query.
+//   - While searching (/-mode): printable runes and space append to the query,
+//     backspace deletes a rune, ctrl+w deletes the last word, enter exits
+//     search mode keeping the filter, esc exits search mode and clears the
+//     query.
 //   - Otherwise: j/k/arrows scroll, / enters search mode, esc/q/? close the modal.
 //
 // Returns the model unchanged for chaining clarity; mutations happen in place.
@@ -180,6 +181,17 @@ func (m *Model) handleSearchKey(keyStr string) {
 			m.selected = 0
 			m.filter()
 		}
+	case "ctrl+w":
+		// Like a shell: trailing spaces go with the word before them.
+		q := strings.TrimRight(m.query, " ")
+		m.query = q[:strings.LastIndexByte(q, ' ')+1]
+		m.selected = 0
+		m.filter()
+	case "space":
+		// Key.String() renders a literal space as "space".
+		m.query += " "
+		m.selected = 0
+		m.filter()
 	default:
 		// Single printable rune — append to query.
 		if r := []rune(keyStr); len(r) == 1 && unicode.IsPrint(r[0]) {
