@@ -3577,6 +3577,11 @@ func (a *App) SetSidebarShowUnreadInCollapsed(on bool) {
 	a.sidebar.SetShowUnreadInCollapsed(on)
 }
 
+// SetSidebarStartCollapsed starts every sidebar section collapsed.
+func (a *App) SetSidebarStartCollapsed(on bool) {
+	a.sidebar.SetStartCollapsed(on)
+}
+
 // renderTypingLine returns the styled typing indicator for the current
 // channel (people typing, apps working), or an empty string if there is
 // neither. Stays on App because it pulls in messagepane name resolution

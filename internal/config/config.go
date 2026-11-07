@@ -198,6 +198,8 @@ type Sidebar struct {
 	// ShowUnreadInCollapsed keeps a collapsed section's unread channels
 	// (and the open channel) visible under its header. Default off.
 	ShowUnreadInCollapsed bool `toml:"show_unread_in_collapsed"`
+	// StartCollapsed starts every sidebar section collapsed. Default off.
+	StartCollapsed bool `toml:"start_collapsed"`
 }
 
 // Marks holds preferences for vim-style marks.
