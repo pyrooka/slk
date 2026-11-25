@@ -5279,15 +5279,25 @@ func (a *App) quoteSelected() tea.Cmd {
 	if !ok {
 		return nil
 	}
-	text := strings.TrimSpace(messages.MessageCopyText(msg))
-	if text == "" {
-		return nil
-	}
 	toThread := a.focusedPanel == PanelThread
 	c := &a.compose
 	if toThread {
 		c = &a.threadCompose
 	}
+	// beginInsertMode would refuse after the draft was already changed.
+	if a.composeDisabled && !toThread {
+		return toastWithClear(a, a.composeBlockedText(), 2*time.Second)
+	}
+	// EditSource is what the composer takes (markdown); a forward has no
+	// own text, so fall back to its shared content.
+	text := strings.TrimSpace(messages.EditSource(msg))
+	if text == "" {
+		text = strings.TrimSpace(messages.MessageCopyText(msg))
+	}
+	if text == "" {
+		return nil
+	}
+	text = c.MentionsForEdit(text)
 	quote := "> " + strings.ReplaceAll(text, "\n", "\n> ") + "\n\n"
 	c.SetValue(quote + c.Value())
 	c.MoveCursorToEnd()
