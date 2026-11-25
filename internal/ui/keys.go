@@ -179,7 +179,7 @@ func DefaultKeyMap() KeyMap {
 		SaveThread:     key.NewBinding(key.WithKeys("S"), key.WithHelp("S", "save thread")),
 		RespondButtons: key.NewBinding(key.WithKeys("b"), key.WithHelp("b", "respond to message buttons")),
 		ListReactions:  key.NewBinding(key.WithKeys("L"), key.WithHelp("L", "list reactions")),
-		UserProfile:    key.NewBinding(key.WithKeys("K"), key.WithHelp("K", "show author's profile")),
+		UserProfile:    key.NewBinding(key.WithKeys("K"), key.WithHelp("K", "show profile / channel info")),
 		Huddle:         key.NewBinding(key.WithKeys("H"), key.WithHelp("H / :huddle", "copy huddle link")),
 		// Keyless, like MarksList: dispatched from the command registry.
 		Suppress:   key.NewBinding(key.WithHelp(":suppress", "hide this author's messages")),

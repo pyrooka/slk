@@ -81,6 +81,9 @@ func (d *Demo) services() services {
 			Lookup: func(channelID ids.ChannelID) (string, string, bool) {
 				return w.lookup(string(channelID))
 			},
+			Info: func(context.Context, ids.TeamID, ids.ChannelID) (core.ChannelInfo, error) {
+				return core.ChannelInfo{}, nil
+			},
 		}),
 		threads: core.NewThreadService(core.ThreadServiceFuncs{
 			Fetch: func(channelID ids.ChannelID, threadTS ids.ThreadTS) core.Msg {

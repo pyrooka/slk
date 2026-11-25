@@ -325,6 +325,7 @@ type ChannelServiceFuncs struct {
 	SearchRemote        func(query string) []ChannelFinderItem
 	MessagingCapability func(channelID ids.ChannelID) Cmd
 	SetStarred          func(teamID ids.TeamID, channelID ids.ChannelID, starred bool) Cmd
+	Info                func(ctx context.Context, teamID ids.TeamID, channelID ids.ChannelID) (ChannelInfo, error)
 }
 
 // NewChannelService builds a ChannelService from a
@@ -440,6 +441,13 @@ func (c channelAdapter) SetStarred(teamID ids.TeamID, channelID ids.ChannelID, s
 		return nil
 	}
 	return c.fns.SetStarred(teamID, channelID, starred)
+}
+
+func (c channelAdapter) Info(ctx context.Context, teamID ids.TeamID, channelID ids.ChannelID) (ChannelInfo, error) {
+	if c.fns.Info == nil {
+		return ChannelInfo{}, errors.ErrUnsupported
+	}
+	return c.fns.Info(ctx, teamID, channelID)
 }
 
 // SearchServiceFuncs is the closure bundle accepted by

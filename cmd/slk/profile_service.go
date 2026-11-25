@@ -37,6 +37,16 @@ func toCoreProfile(u *slackclient.UserProfile, at time.Time) core.UserProfile {
 	}
 }
 
+// toCoreChannelInfo maps a conversations.info result to the
+// core.ChannelInfo the channel info prompt renders.
+func toCoreChannelInfo(ch *slack.Channel) core.ChannelInfo {
+	info := core.ChannelInfo{Topic: ch.Topic.Value, Purpose: ch.Purpose.Value, Members: ch.NumMembers}
+	if ch.Created > 0 {
+		info.Created = ch.Created.Time()
+	}
+	return info
+}
+
 // zoneAbbrev returns the timezone abbreviation (e.g. "PDT") for tz at
 // the instant at, or "" when tz is empty, fails to load, or resolves to
 // a numeric offset (e.g. "-03") rather than a named abbreviation.

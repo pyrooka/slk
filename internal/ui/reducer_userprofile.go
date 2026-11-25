@@ -1,6 +1,7 @@
 // internal/ui/reducer_userprofile.go
 //
-// User-profile-dialog reducer: owns UserProfileLoadedMsg, the result
+// Reducer for K's fetches: ChannelInfoLoadedMsg (see
+// App.openChannelInfo) and UserProfileLoadedMsg, the result
 // of the K-opened modal's fetch (see App.openUserProfile). Free
 // reducer, mirroring reducer_reactions.go's shape -- the modal itself
 // (internal/ui/userprofile) already carries the staleness guard
@@ -13,6 +14,10 @@ import (
 )
 
 var reduceUserProfile reducerFunc = func(a *App, msg tea.Msg) (tea.Cmd, bool) {
+	if m, ok := msg.(ChannelInfoLoadedMsg); ok {
+		a.applyChannelInfo(m)
+		return nil, true
+	}
 	m, ok := msg.(UserProfileLoadedMsg)
 	if !ok {
 		return nil, false

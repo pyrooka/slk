@@ -956,6 +956,17 @@ func run() error {
 					return probeMessagingCapability(ctx, client.PostForm, chIDStr)
 				}
 			},
+			Info: func(ctx context.Context, teamID ids.TeamID, channelID ids.ChannelID) (core.ChannelInfo, error) {
+				wctx := router.ByID(string(teamID))
+				if wctx == nil || wctx.Client == nil {
+					return core.ChannelInfo{}, fmt.Errorf("workspace %q is unavailable", teamID)
+				}
+				ch, err := conversationResolverFor(router, wctx)(ctx, string(channelID))
+				if err != nil {
+					return core.ChannelInfo{}, err
+				}
+				return toCoreChannelInfo(ch), nil
+			},
 			SetStarred: func(teamID ids.TeamID, channelID ids.ChannelID, starred bool) core.Cmd {
 				// Resolve by the REQUESTED workspace, not router.Active():
 				// a workspace switch runs in the background and flips

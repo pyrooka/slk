@@ -874,6 +874,16 @@ type UserProfileLoadedMsg struct {
 	Err            error
 }
 
+// ChannelInfoLoadedMsg carries the result of the K-opened channel info
+// prompt's fetch (core.ChannelService.Info). Seq is the prompt it was
+// fetched for; a result for any other prompt is dropped.
+type ChannelInfoLoadedMsg struct {
+	Seq  uint64
+	Item sidebar.ChannelItem
+	Info core.ChannelInfo
+	Err  error
+}
+
 // UploadResultMsg carries the final result of an upload batch.
 type UploadResultMsg struct {
 	Err error

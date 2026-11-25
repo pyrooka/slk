@@ -84,9 +84,10 @@
 | `Q` | Normal | Quit (with confirmation) |
 | `Ctrl+c` | Any | Quit (with confirmation) |
 | `K` | Normal (message) | Show the selected message author's profile |
+| `K` | Normal (sidebar) | Show the selected DM's profile, or the selected channel's info (type, members, created date, topic, purpose) |
 | `e` | Profile dialog | Copy the email shown in the dialog (or click its 📋) |
 | `c` | Profile dialog | Copy the person's huddle link while they are in a huddle Slack named a channel for (or click the 📋 on the "In a huddle" row) |
-| `K` / `Esc` / `q` | Profile dialog | Close |
+| `K` / `Esc` / `q` | Profile dialog, channel info | Close |
 
 For `:` commands and slash commands, see [[Commands]].
 

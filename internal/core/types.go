@@ -266,6 +266,15 @@ type UserProfile struct {
 	HuddleChannelID string
 }
 
+// ChannelInfo is a conversation's details, as fetched by
+// ChannelService.Info. Topic and Purpose are Slack mrkdwn; zero fields
+// are unknown or unset.
+type ChannelInfo struct {
+	Topic, Purpose string
+	Members        int
+	Created        time.Time
+}
+
 // RateLimitedError is how adapters report Slack rate limiting, so the
 // UI never imports slack-go.
 type RateLimitedError struct {

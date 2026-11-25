@@ -557,6 +557,9 @@ type App struct {
 	reactionPicker *reactionpicker.Model
 	reactionsView  *reactionsview.Model
 	confirmPrompt  confirmprompt.Model
+	// confirmPromptSeq numbers each opening of confirmPrompt, so a late
+	// ChannelInfoLoadedMsg cannot overwrite a different prompt.
+	confirmPromptSeq uint64
 	// shownPrompt is the ephemeral message whose buttons the confirm
 	// prompt is showing; nil when it shows anything else, or nothing.
 	shownPrompt *actionPromptRef
@@ -1572,7 +1575,8 @@ func (a *App) openReactionsView() tea.Cmd {
 // nothing.
 const noProfileToast = "No profile for this message"
 
-// openUserProfile opens the read-only "who is this person?" modal for
+// openUserProfile shows the sidebar's selected row when the sidebar has
+// focus (openSidebarInfo). Otherwise it opens the read-only "who is this person?" modal for
 // the selected message's author (main pane) or selected reply's author
 // (thread pane), like openReactionsView. It rejects no selection, an
 // empty UserID, and a UserID starting with "B" (cmd/slk/history.go's
@@ -1582,6 +1586,9 @@ const noProfileToast = "No profile for this message"
 // switches to ModeUserProfile, and returns a tea.Cmd that fetches the
 // full profile under a 10s timeout.
 func (a *App) openUserProfile() tea.Cmd {
+	if a.focusedPanel == PanelSidebar {
+		return a.openSidebarInfo()
+	}
 	_, _, _, userID, _, ok := a.selectedMessageContext()
 	if ok {
 		// A huddle announcement is stored under Slackbot; the person to
@@ -1597,7 +1604,11 @@ func (a *App) openUserProfile() tea.Cmd {
 	if !ok || userID == "" || strings.HasPrefix(userID, "B") {
 		return toastWithClear(a, noProfileToast, 2*time.Second)
 	}
+	return a.openProfileOf(userID)
+}
 
+// openProfileOf opens the profile dialog for userID and returns its fetch.
+func (a *App) openProfileOf(userID string) tea.Cmd {
 	teamID := a.activeTeamID
 	a.userProfile.Open(userprofile.Seed{
 		TeamID:      teamID,

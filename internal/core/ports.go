@@ -318,6 +318,11 @@ type ChannelService interface {
 	// whose resolved Msg is ChannelStarSetMsg; the requesting path
 	// applies the sidebar move optimistically and reverts on the error.
 	SetStarred(teamID ids.TeamID, channelID ids.ChannelID, starred bool) Cmd
+
+	// Info fetches channelID's details in workspace teamID (the one the
+	// user is looking at). Blocking; callers run it from a tea.Cmd with
+	// a bounded context.
+	Info(ctx context.Context, teamID ids.TeamID, channelID ids.ChannelID) (ChannelInfo, error)
 }
 
 // SearchService runs message searches. SearchChannel queries the local
