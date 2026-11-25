@@ -5267,3 +5267,29 @@ func (a *App) scheduleChannelSearch(query string) tea.Cmd {
 		return channelSearchDebounceMsg{query: query, gen: gen}
 	})
 }
+
+// quoteSelected puts the selected message into the focused pane's composer
+// as a "> " quote above any existing draft, then enters insert mode.
+func (a *App) quoteSelected() tea.Cmd {
+	p, _, focused := a.focusedContentPane()
+	if !focused || a.editing.IsActive() {
+		return nil
+	}
+	msg, ok := p.SelectedMessage()
+	if !ok {
+		return nil
+	}
+	text := strings.TrimSpace(messages.MessageCopyText(msg))
+	if text == "" {
+		return nil
+	}
+	toThread := a.focusedPanel == PanelThread
+	c := &a.compose
+	if toThread {
+		c = &a.threadCompose
+	}
+	quote := "> " + strings.ReplaceAll(text, "\n", "\n> ") + "\n\n"
+	c.SetValue(quote + c.Value())
+	c.MoveCursorToEnd()
+	return a.beginInsertMode(toThread)
+}

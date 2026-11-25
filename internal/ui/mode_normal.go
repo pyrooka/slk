@@ -438,6 +438,9 @@ func handleNormalMode(a *App, msg tea.KeyMsg) tea.Cmd {
 	case key.Matches(msg, a.keys.PrevUnread):
 		return a.jumpToUnread(-1)
 
+	case key.Matches(msg, a.keys.Quote):
+		return a.quoteSelected()
+
 	case key.Matches(msg, a.keys.CloseThreadView):
 		// Lowercase q is "close thread view" when one is open; if
 		// no thread panel is visible it's a no-op (Q and Ctrl+C
